@@ -1,0 +1,483 @@
+#
+# a vogal prende-se à consoante antecedente
+#
+careta,ca-re-ta
+copo,co-po
+
+#
+# 2. as consoantes m, n, s, l podem prender-se à vogal antecedente
+#
+
+#
+# 2a. casos em que prende-se
+#
+cantil,can-til
+mascar,mas-car
+bomba,bom-ba
+celta,cel-ta
+
+#
+# 2b. casos em que não se prende
+#
+caneta,ca-ne-ta
+tesoura,te-sou-ra
+cama,ca-ma
+celeiro,ce-lei-ro
+
+#
+# 3. Casos indecidíveis pela ortografia
+#
+sublinhar,sub-li-nhar
+subrogar,sub-ro-gar
+
+#
+# 4. NGB: Os encontros -ia, -ie, -io, -ua, -ue, -uo, finais, átonos,
+# seguidos ou não de s, classificam-se quer como ditongos, quer
+# como hiatos, uma vez que as duas emissões existem.
+#
+# obs. isso aplica-se no tocante à emissão apenas, não se deve fazer
+# essa separação no final da linha.
+#
+história,his-tó-ria,his-tó-ri-a
+série,sé-ri-e,sé-rie
+pátio,pá-ti-o,pá-tio
+árdua,ár-du-a,ár-dua
+tênue,tê-nu-e,tê-nue
+vácuo,vá-cu-o,vá-cuo
+
+#
+# 5. Exemplos de Celso Cunha
+#
+
+#
+# 5a. Encontros consonantais no início da palavra
+#
+gnomo,gno-mo
+pneumático,pneu-má-ti-co
+ptialina,pti-a-li-na
+mnemônicom,mne-mô-ni-com
+psicologia,psi-co-lo-gi-a
+
+#
+# 5b. Encontros consonantais medias em pronúncia tensa podem
+# ser articulados numa só sílaba ou em sílabas diferentes)
+#
+apto,a-pto,ap-to
+digno,di-gno,dig-no
+ritmo,ri-tmo,rit-mo
+
+#
+# 5c. outros
+#
+Paraguai,Pa-ra-guai
+traduzir,tra-du-zir
+neutro,neu-tro
+elevado,e-le-va-do
+altar,al-tar
+rua,ru-a
+sonhou,so-nhou
+quereis,que-reis
+tábua,tá-bua
+brando,bran-do
+saguões,sa-guões
+África,Á-fri-ca
+paulista,pau-lis-ta
+mineiro,mi-nei-ro
+português,por-tu-guês
+sublinhar,sub-li-nhar
+redargüiu,re-dar-güiu
+coordenar,co-or-de-nar
+universidade,u-ni-ver-si-da-de
+organização,or-ga-ni-za-ção
+inacreditavelmente,i-na-cre-di-ta-vel-men-te
+lindas,lin-das
+crianças,cri-an-ças
+azul,a-zul
+branco,bran-co
+vinham,vi-nham
+correndo,cor-ren-do
+pela,pe-la
+rua,ru-a
+abaixo,a-bai-xo
+
+#
+# 6. Hêndricas Nadólskis:
+#
+pneumático,pneu-má-ti-co
+mnemônico,mne-mô-ni-co
+acne,ac-ne
+dracma,drac-ma
+subjugar,sub-ju-gar
+descer,des-cer
+ablução,a-blu-ção
+abrasar,a-bra-sar
+achegar,a-che-gar
+filha,fi-lha
+manhã,ma-nhã
+sublingual,sub-lin-gual
+subrogar,sub-ro-gar
+adlegação,ad-le-ga-ção
+abstrair,abs-tra-ir
+inscrição,ins-cri-ção
+interstício,in-ters-tí-cio
+perspicaz,pers-pi-caz
+subscrever,subs-cre-ver
+bisneto,bis-ne-to
+cisplatino,cis-pla-ti-no
+desligar,des-li-gar
+distração,dis-tra-ção
+transportar,trans-por-tar
+extrair,ex-tra-ir
+bisavô,bi-sa-vô
+cisandino,ci-san-di-no
+desesperar,de-ses-pe-rar
+disentérico,di-sen-té-ri-co
+transatlântico,tran-sa-tlân-ti-co
+exército,e-xér-ci-to
+caatinga,ca-a-tin-ga
+coordenar,co-or-de-nar
+intelecção,in-te-lec-ção
+occipital,oc-ci-pi-tal
+prorrogar,pror-ro-gar
+ressurgir,res-sur-gir
+ataúde,a-ta-ú-de
+caiais,cai-ais
+caíeis,ca-í-eis
+doer,do-er
+aurora,au-ro-ra
+cruéis,cru-éis
+fugiu,fu-giu
+glória,gló-ria
+iguais,i-guais
+jóias,jói-as
+saguão,sa-guão
+inoportuno,i-no-por-tu-no
+
+#
+# 7. Encontros vocálicos (incluindo aqueles com consoantes
+# vocalizadas)
+#
+# Os exemplos foram coligidos de várias obras assim indicadas:
+#
+#     (1) - Napoleão Mendes de Almeida (Gramática Metódica)
+#     (2) - Celso Luft (Guia Ortográfico)
+#     (3) - Osmar Barbosa (Guia Ortográfico)
+#     (4) - Celso Cunha (Gramática)
+#     (5) - José Oiticica (Estudos de Fonologia)
+#
+# Entretanto a separação silábica é nossa
+#
+
+#
+# 7a. Ditongos orais:
+#
+# A vogal pospositiva só pode ser i ou u [exceções: Caetano, ao,
+# aos, caos] (2)
+#
+
+# ai - mais, sai, vai, cai (1)
+mais,mais
+sai,sai
+vai,vai
+cai,cai
+
+# au - autor, pau, bacalhau (1)
+autor,au-tor
+pau,pau
+bacalhau,ba-ca-lhau
+
+# éi - quartéis, réis (1)
+quartéis,quar-téis
+réis,réis
+
+# ei - feira, leite, reis (1)
+feira,fei-ra
+leite,lei-re
+reis,reis
+
+# éu - véu, céu, chapéu, tabaréu (1)
+véu,véu
+céu,céu
+chapéu,cha-péu
+tabaréu,ta-ba-réu
+
+# eu - meu, seu, morreu, sandeu (1)
+meu,meu
+seu,seu
+morreu,mor-reu
+sandeu,san-deu
+
+# iu - caiu, viu (1)
+caiu,ca-iu
+viu,viu
+
+# ói - dói, sóis, anzóis (1)
+dói,dói
+sóis,sóis
+anzóis,an-zóis
+
+# oi - boi, açoite, foice, coitado (1)
+boi,boi
+açoite,a-çoi-te
+foice,foi-ce
+coitado,coi-ta-do
+
+# ol - sol, terçol (4)
+sol,sol
+terçol,ter-çol
+
+# ou - vou, dou, tesouro, pouco (1)
+vou,vou
+dou,dou
+tesouro,te-sou-ro
+pouco,pou-co
+
+# ui - fui, circuito, intuito (1)
+fui,fui
+circuito,cir-cui-to
+intuito,in-tui-to
+
+# ui - aflui, contribui (3)
+aflui,a-flui
+contribui,con-tri-bui
+
+#
+# O ditongo ui aparece na terminação dos verbos em -uir (3)
+#
+
+#
+# O ditongo oi (preferido em Portugal) alterna com ou, quase
+# invariavelmente antes de r: couro e coiro, ouro e oiro, louça e
+# loiça (2).
+#
+
+#
+# 7b. Ditongos nasais
+#
+
+# ãe - pães, mães, cães (1)
+pães,pães
+mães,mães
+cães,cães
+
+# ãi - cãibra (2)
+cãibra,cãi-bra
+
+# ão - cão, irão, mão, órgão (1)
+cão,cão
+irão,i-rão
+mão,mão
+órgão,ór-gão
+
+# am - disseram, foram (1)
+disseram,dis-se-ram
+foram,fo-ram
+
+# em - bem, tem, caem, moem (1)
+bem,bem
+tem,tem
+caem,ca-em
+moem,mo-em
+
+# en - hífen, edens (2)
+hífen,hí-fen
+edens,e-dens
+
+# õe - põe, corações, lições (1)
+põe,põe
+corações,co-ra-ções
+lições,li-ções
+
+# ui - muito (1)
+muito,mui-to
+
+#
+# Os verbos apresentam am nas formas paroxítonas e ão nas oxítonas
+# e monossilábicas (2).
+#
+
+#
+# 7c. Semiditongos (1) (ou ditongos crescentes (2)):
+#
+
+# ea - côdea, ígnea (1)
+côdea,cô-dea
+ígnea,íg-nea
+
+# eo - níveo, áureo (1)
+níveo,ní-veo
+áureo,áu-reo
+
+# ia - glória, história (1)
+glória,gló-ria,gló-ri-a
+história,his-tó-ria,his-tó-ri-a
+
+# ie - série, superfície (1)
+série,sé-rie,sé-ri-e
+superfície,su-per-fí-cie,su-per-fí-ci-e
+
+# io - ilusório, fio, pavio (1)
+ilusório,i-lu-só-rio,i-lu-só-ri-o
+fio,fio,fi-o
+pavio,pa-vio,pa-vi-o
+
+# oa - páscoa, mágoa (1)
+páscoa,pás-coa
+mágoa,má-goa
+
+# ua - água, contígua, contínua (1)
+água,á-gua,á-gu-a
+contígua,con-tí-gua,con-tí-gu-a
+contínua,con-tí-nua,con-tí-nu-a
+
+# ue - tênue (1)
+tênue,tê-nue,tê-nu-e
+
+# ui - ruim, tuim (1)
+ruim,ruim
+tuim,tuim
+
+# uo - árduo, exíguo (1)
+árduo,ár-duo,ár-du-o
+exíguo,e-xí-guo,e-xí-gu-o
+
+#
+# 7d. Tritongo
+#
+
+# eai - doidivaneai, areais (5)
+doidivaneai,doi-di-va-neai
+areais,a-reais
+
+# eão - torreão (5)
+torreão,tor-reão
+
+# eõe - leões (5)
+leões,leões
+
+# iéi - fiéis (1)
+fiéis,fiéis
+
+# iai - joviais (5)
+joviais,jo-viais
+
+# ião - espião (1)
+espião,es-pião
+
+# iõe - espiões (1)
+espiões,es-piões
+
+# oei - padroeiro (5)
+padroeiro,pa-droei-ro
+
+# uae - quaes (5)
+quaes,quaes
+
+# uai - Uruguai (4)
+Uruguai,U-ru-guai
+
+# uam - enxáguam (4)
+enxáguam,en-xá-guam
+
+# uão - saguão (4)
+saguão,sa-guão
+
+# üem - delinqüem (4)
+delinqüem,de-lin-qüem
+
+# uei - cueiro (1)
+cueiro,cuei-ro
+
+# üei - enxaguei (4)
+enxaguei,en-xa-guei
+
+# üiu - delinqüiu (4)
+delinqüiu,de-lin-qüiu
+
+# uõe - saguões (4)
+saguões,sa-guões
+
+# uou - enxaguou (4)
+enxaguou,en-xa-guou
+
+
+#
+# 7e. Alguns casos envolvendo quatro vogais
+#
+
+# uaia - guaianases (5)
+guaianases,gua-ia-na-ses
+
+# aiai - caiais (1)
+caiais,ca-iais
+
+
+#
+# 7f. Monotongo
+#
+
+# ue - que, guerra (1)
+que,que
+guerra,guer-ra
+
+# ui - guisado, quinto (1)
+guisado,gui-sa-do
+quinto,quin-to
+
+
+#
+# 7g. Hiato
+#
+
+# aa - caatinga (2)
+caatinga,ca-a-tin-ga
+
+# aí - saída (2)
+saída,sa-í-da
+
+# aú - saúde (1)
+saúde,sa-ú-de
+
+# aú - graúdo (1)
+graúdo,gra-ú-do
+
+# ee - compreender (2)
+compreender,com-pre-en-der
+
+# eí - cafeína (2)
+cafeína,ca-fe-í-na
+
+# eú - reúne (2)
+reúne,re-ú-ne
+
+# ii - niilismo (2)
+niilismo,ni-i-lis-mo
+
+# iu - triunfo (1)
+triunfo,tri-un-fo
+
+# iú - friúra (2)
+friúra,fri-ú-ra
+
+# oe - abençoe, perdoe (2)
+abençoe,a-ben-ço-e
+perdoe,per-do-e
+
+# oí - egoísta (2)
+egoísta,e-go-ís-ta
+
+# oo - cooperar (2)
+cooperar,co-o-pe-rar
+
+# oú - timboúva (2)
+timboúva,tim-bo-ú-va
+
+# ue - cultue, habitue (2)
+cultue,cul-tu-e
+habitue,ha-bi-tu-e
+
+# uí - ruído (2)
+ruído,ru-í-do
+
+# uu - duunvirato (2)
+duunvirato,du-un-vi-ra-to

@@ -1,0 +1,4491 @@
+#!/usr/bin/perl
+
+use strict;
+
+#
+#  Copyright (C) 1995-2002 Ricardo Ueda Karpischek
+#
+#  This is free software; you can redistribute it and/or modify
+#  it under the terms of the version 2 of the GNU General Public
+#  License as published by the Free Software Foundation.
+#
+#  This software is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this software; if not, write to the Free Software
+#  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+#  USA.
+#
+
+#
+# This is fl, a lexical tool for Brazilian Portuguese.
+#
+
+#
+# NOME
+# ----
+#
+#   fl - ferramenta lexical
+#
+#
+# SINOPSE
+# -------
+#
+# O programa fl tem múltiplos usos dentro do pacote br.ispell.
+# Ele é utilizado para:
+#
+#   lematização                                           OK
+#   calcular as formas de uma palavra                     OK
+#   separação silábica                                    OK
+#   comparação fonética                                   OK
+#   gerar o dicionário ispell a partir da base            OK
+#   gerar candidatos a derivações de uma palavra          OK
+#   agregar conteúdo ao dicionário base                   OK
+#
+# BUGS:
+#
+# 1. regra F de prefixo colidindo com regra de sufixo
+# 2. -r não funciona se o argumento for o infinitivo de um verbo
+# 3. -r e -e não funcionam para formas canônicas de nomes (ex. "louco").
+#
+# EXEMPLOS
+# --------
+#
+# Especificando todos os caminhos
+# -------------------------------
+#
+#     $ fl -i br.ispell -f br.aff -b br.base
+#
+# Obter o lema de uma palavra
+# ---------------------------
+#
+#     $ fl -r falei
+#     falar/F
+#
+# Calcular as formas de uma palavra
+# ---------------------------------
+#
+#     $ fl -e louco
+#
+# Separar as sílabas de uma palavra
+# ---------------------------------
+#
+#     $ fl -s macaco
+#     ma-ca-co
+#
+#     $ fl -s macaco,ma-ca-co
+#
+#     $ fl -s -
+#     macaco,ma-ca-co
+#
+# Comparação fonética
+# -------------------
+#
+#     $ fl -v -p kimono quimono
+#     fonética de kimono: qui-mo-no
+#     fonética de quimono: qui-mo-no
+#     0
+#
+#     $ fl -p Carthago Cartago
+#     fonética de Carthago: car-ta-go
+#     fonética de Cartago: car-ta-go
+#     0
+#
+# Gerar candidatos a derivações de uma palavra
+# --------------------------------------------
+#
+#     $ fl -d
+#
+# Agregar conteúdo ao dicionário base
+# -----------------------------------
+#
+#     $ fl -a 'grão m. semente'
+#
+#     $ fl -a -
+#     grão m. semente
+#     ^d
+#
+#     $ fl -E E-extra
+#
+# DICIONÁRIO BASE
+# ---------------
+#
+# O dicionário base é um arquivo texto (ISO-8859-1) dividido em cinco
+# seções, cada uma iniciada por uma linha contendo uma das seguintes
+# declarações:
+#
+#   origens
+#   paradigmas verbais
+#   paradigmas nominais
+#   semântica
+#   verbetes
+#
+# Cada seção contém um registro por linha. Linhas podem ser vazias.
+# O terminador pode ser LF ou CR,LF. Comentários iniciam com um
+# caracter '#' e terminam no final da linha.
+#
+# 1. Registros da seção "origens"
+#
+# São formados por um identificador numérico seguido de uma descrição
+# livre. Exemplo:
+#
+#   1 br-ispell 2.5
+#   2 Juca <juca@algum.dominio>
+#   3 Ricardo Ueda
+#
+# 2. Registros da seção "paradigmas verbais"
+#
+# São formados por um identificador numérico seguido de um verbo.
+# Exemplo:
+#
+#   1 cantar
+#   2 vender
+#   3 partir
+#
+# 3. Registros da seção "flexões nominais"
+#
+# São blocos de classificações, cada uma contando com uma seqüência
+# de regras de flexão para obter a respectiva forma. Exemplo:
+#
+#   4 nariz
+#
+#   s.m.pl.       /B     # narizes
+#   s.m.dim.sg.   /C     # narizinho
+#   s.m.dim.pl.   /C/B   # narizinhos
+#   s.m.aum.sg.   /F     # narigão
+#   s.m.aum.pl.   /F/B   # narigões
+#
+# Isso significa o seguinte: o bloco de identificador 4 é exemplificado
+# pelo substantivo masculino "nariz". Ele é composto por cinco
+# classificações: substantivo masculino plural, diminutivos e aumentativos.
+# para obter o plural aplique /B, para obter o diminutivo plural aplique
+# nesta ordem /C e /B, etc.
+#
+# 4. Registros da seção "semântica"
+#
+#
+# 5. Registros da seção "verbetes"
+#
+# São verbetes de dicionário no seguinte formato:
+#
+#   LEMA CLASSE ID SEMÂNTICA ORIGENS[|ATRIBUTO[=VALOR] ORIGENS]*
+#
+# O "lema" é a forma utilizada como título da entrada do dicionário,
+# conforme usual nos dicionários da língua portuguesa. Assim, o lema
+# para verbos é o infinitivo, o lema para adjetivos é a forma
+# masculina singular, etc.
+#
+# A "classe" é uma classe da NGB. As seguintes abreviações são
+# utilizadas:
+#
+# "ID" é uma identificação numérica da acepção. Note que as acepções
+# são numeradas independentemente das classes. Não pode existir
+# uma acepção 1 para "burro" enquanto substantivo e ao mesmo tempo
+# uma acepção 1 para "burro" enquanto adjetivo.
+#
+# "SEMÂNTICA" pode ser uma categoria (exemplos: "ave", "mamífero",
+# "cidade"), ou uma descrição breve (exemplos: "capital do
+# Japão", "assento tosco", "casa de crédito").
+#
+# "ORIGENS" é uma lista não vazia de identificadores de origem,
+# separados por vírgulas.
+#
+# "ATRIBUTO" é uma das seguintes propriedades padronizadas:
+#
+#   MAT          palavra especializada da Matemática
+#   SI=palavra   a palavra é sinônimo
+#
+# Exemplos de verbetes:
+#
+#   alface f 1 hortaliça 1
+#   banco m 1 assento tosco 2
+#   banco m 2 casa de crédito 2
+#   bem-te-vi m 1 ave 1
+#   brócolis m 1 hortaliça 2
+#   burro m 1 animal de carga 2
+#   burro adj 2 pouco inteligente 2
+#   escarola f 1 hortaliça 1|SI=chicória 2
+#   pardal m 1 ave 1
+#
+# Observação importante: tanto o LEMA quanto a SEMÂNTICA e os
+# valores de atributos podem conter espaços, mas não o separador '|'.
+#
+#
+# FORMATO "EDITÁVEL"
+# ------------------
+#
+# Trata-se de um fonte para o dicionário base, fácil de criar ou
+# manter através de um editor de textos. Ainda não está descrito de
+# modo formal. Para saber como ele é, examine os arquivos E-* da
+# distribuição do br.ispell.
+#
+#
+# DICIONÁRIO ISPELL
+# -----------------
+#
+# O dicionário ispell é a lista dos lemas do dicionário base,
+# cada qual com as flags de afixos que se apliquem. Esse dicionário
+# é aproveitado pelo buildhash para criar o hash do ispell, ou
+# pelo fl para lematizar ou expandir. Ele é gerado pelo fl a
+# partir do dicionário base (veja a flag -l).
+#
+#
+# SEPARAÇÃO SILÁBICA
+# ------------------
+#
+# A implementação segue de perto as regras usuais para o português
+# brasileiro. A finalidade almejada é o cálculo da fonética de uma
+# palavra, a fim de filtrar listas de palavras com ortografia
+# livre. Para saber como a implementação funciona, veja o fonte,
+# função "silabas".
+#
+#
+# COMPARAÇÃO FONÉTICA
+# -------------------
+#
+#
+#
+# OPÇÕES
+# ------
+#
+#   -a entrada
+#
+#     Agrega as entrada indicada no dicionário base. Se ao invés de
+#     uma entrada a opção -a for seguida de '-', lê da entrada padrão
+#     uma lista de entradas a serem agregadas. Para uma descrição do
+#     formato da entrada, veja a seção "DICIONÁRIO BASE".
+#
+#   -b caminho
+#
+#     Informa o caminho do dicionário base (br.base).
+#
+#   -d palavra1 palavra2 ...
+#
+#     Deriva ou compõe palavras das palavras dadas. Essa opção
+#     deverá ser a última da linha de comandos.
+#
+#     A diferença entre -r e -d está no fato de que a composição
+#     e a derivação não são tratadas pelo br.ispell ao nível do
+#     arquivo de afixos. Uma das razões para ser assim
+#     é a limitação no total de flags imposta pelo ispell.
+#     Os paradigmas verbais estão consumindo quase todas as 58
+#     flags disponíveis por default, e como na derivação prefixal
+#     não é possível decidir quando aplicar uma regra baseando-se
+#     na ortografia, seria necessário utilizar uma ou mais
+#     flags para cada prefixo. Assim, esses fenômenos estão sendo
+#     tratados apenas ao nível da ferramenta fl.
+#
+#   -E arquivo
+#
+#     Converte o arquivo dado para o formato do dicionário base, ou
+#     agrega o conteúdo do arquivo dado ao br.base. No primeiro caso
+#     gera os paradigmas nominais e omite da saída as duas primeiras
+#     seções do dicionário base, que terão que ser criadas à parte
+#     (o fl atualmente não consegue fazê-lo). Nos dois casos o
+#     conteúdo a converter ou agregar deve estar no formato "editável".
+#
+#   -e palavra1 palavra2 ...
+#
+#     Expande as formas das palavras dadas como argumento. Essa
+#     opção deverá ser a última da linha de comandos. Se o argumento
+#     para -e for '-', as palavras serão lidas da entrada
+#     padrão, uma por linha. Sem nenhum argumento, essa opção
+#     provoca a expansão de todas as entradas do vocabulário
+#     ispell (que geralmente corresponde ao arquivo br.ispell).
+#
+#   -F
+#
+#     Classifica e flexiona baseando-se na terminação as palavras
+#     dadas na entrada padrão. É um preprocessador de listas de palavras,
+#     que gera a entrada do agregador (fl -E).
+#
+#   -f caminho
+#
+#     Informa o caminho do arquivo de afixos (br.aff).
+#
+#   -I
+#
+#     O mesmo que -e sem argumentos, mas gera apenas as formas
+#     obtidas com remoção completa do lado esquerdo da produção,
+#     que deverão ser adicionadas sem flags ao br.ispell a fim
+#     de cobrir as lacunas de geração do ispell e do myspell.
+#     Por exemplo, a regra
+#
+#         flag n:
+#         S E R > -SER,FOI
+#
+#     Remove completamente o lado esquerdo na expansão de 'ser/n'.
+#
+#   -i caminho
+#
+#     Informa o caminho do vocabulário ispell (br.ispell), isto
+#     é, a lista de raízes e flags.
+#
+#   -l
+#
+#     Lista na saída padrão os lemas do dicionário base, cada qual
+#     com as flags de afixos que se apliquem. Essa saída é
+#     reaproveitada pelo buildhash do ispell e também pelo fl,
+#     quando utilizado para lematizar ou expandir.
+#
+#   -L
+#
+#     Calcula os segmentos repetidos do arquivo texto informado
+#     como parâmetro. Isso é uma tentativa de identificar lexias
+#     complexas (ou locuções, ou palavras compostas sem hífen).
+#
+#   -o uid
+#
+#     Indica um 'User ID' sob o qual agregar as entradas ao
+#     dicionário base.
+#
+#   -p palavra1 [palavra2]
+#
+#     Compara foneticamente as palavras 1 e 2. Pode-se omitir a
+#     segunda palavra, a fim de apenas calcular o valor fonético
+#     de uma palavra.
+#
+#     Veja na documentação da função vf as convenções adotadas
+#     para a representação fonética.
+#
+#   -r palavra1 palavra2 ...
+#
+#     Obtém lemas para as palavras dadas. Essa opção deverá ser
+#     a última da linha de comandos. Veja também a opção -d.
+#
+#   -s palavra1 palavra2 ...
+#
+#     Separa as sílabas das palavras dadas. Essa opção deverá ser
+#     a última da linha de comandos. Se o argumento para -s for
+#     a opção -s for '-', as palavras serão lidas da entrada
+#     padrão, uma por linha.
+#
+#     Opcionalmente pode verificar uma separação, para fins de
+#     avaliação do separador, Neste caso, cada palavra deve ser
+#     sucedida por vírgula(s) e separação(ões) considerada(s)
+#     corretas (exemplos: "macaco,ma-ca-co",
+#     "tênue,tê-nue,tê-nu-e").
+#
+#   -S
+#
+#     Constrói o silabário.
+#
+#   -u
+#
+#     Tenta ignorar as diferenças entre as variantes do português.
+#
+#   -U
+#
+#     Tenta ignorar vícios ou particularidades de pronúncia.
+#
+#   -v
+#
+#     Modo verboso.
+#
+#   -x palavra paradigma
+#
+#     Expande as formas da palavra dada utilizando o paradigma
+#     indicado. Essa opção deverá ser a última da linha de comandos.
+#     Se o argumento para -s for a opção -s for '-', os pares
+#     palavra e paradigma serão lidas da entrada padrão, um
+#     por linha.
+#
+#     A diferença entre -x e -e é que -x obtém as regras a serem
+#     aplicadas do paradigma indicado no dicionário base, ao passo
+#     que -e obtém as regras específicas da palavra indicada que
+#     constarem do vocabulário ispell.
+#
+# HISTÓRICO
+# ---------
+#
+# O programa fl foi integrado ao br.ispell na versão 3.0 do
+# pacote.
+#
+#
+# CRÉDITOS
+# --------
+#
+# fl foi escrito por Ricardo Ueda Karpischek.
+#
+#
+# LICENÇA
+# -------
+#
+# fl é distribuído sob os termos da licença GNU GPL.
+#
+# VEJA TAMBÉM
+# -----------
+#
+# conjugue(1), ispell(1)
+#
+
+# caminhos
+my($PATH_B,$PATH_I,$PATH_F);
+
+# operação e flags
+my($OP,$VERB,$UNIF,$SB,$FILTRO);
+
+# índice do dicionário ispell
+my(%IDX_I);
+
+# regras de afixos
+my($AFX,%RF,$AF_LIDO,%IRF);
+
+# dicionário base
+my(@ORIG,@PV,@PN,$PNC,@EPN,@SEMANT,@VERBETE,%LH,$DB_LIDO);
+
+# buffer de verbete
+my($LEMA,$CL,$ID,$SEM,$SUBM,@ATR,@SUBM);
+
+# identificação do usuário
+my($UID);
+
+# vogais e encontros vocálicos
+my($VOG,%HIA,%DIT,%TRI);
+
+# silabário
+my(%SB);
+
+# estatísticas de separação silábica
+my($ERROS,$TOTAL,$DUV);
+
+# auxiliares
+my(%OTC);
+
+# produções de derivação ou composição
+my(@P);
+
+# terminações das palavras
+my(@TP);
+
+# formas admitidas para cada classe gramatical
+my(%FA);
+
+# abreviações e classes
+my(%ABREV,%CLASSE);
+
+# paradigmas nominais reais (isto é, não verbais e não virtuais)
+my($PNR,$LPNR);
+
+# parâmetros e estruturas para cálculo de lexias
+my(@lf,$N,$NL,$NI);
+
+# tabela de terminações usadas pela opção -F
+my($TTM);
+
+$TTM = <<FIM;
+
+ção    ç:ão,ões       substantivo feminino [s.f.]
+agem   age:m,ns       substantivo feminino [s.f.]
+ade    ade:,s         substantivo feminino [s.f.]
+mento  mento:,s       substantivo masculino [s.m.]
+ismo   ismo:,s        substantivo masculino [s.m.]
+ivos   ivo:,s         substantivo masculino [s.m.]
+
+or     or:,a,as,es    adjetivo [adj.]
+ora    or:,a,as,es    adjetivo [adj.]
+oras   or:,a,as,es    adjetivo [adj.]
+ores   or:,a,as,es    adjetivo [adj.]
+ado    ad:a,as,o,os   adjetivo [adj.]
+ada    ad:a,as,o,os   adjetivo [adj.]
+ados   ad:a,as,o,os   adjetivo [adj.]
+adas   ad:a,as,o,os   adjetivo [adj.]
+ante   ante:,s        adjetivo [adj.]
+ente   ente:,s        adjetivo [adj.]
+antes  ante:,s        adjetivo [adj.]
+entes  ente:,s        adjetivo [adj.]
+ável   áve:l,is       adjetivo [adj.]
+ível   áve:l,is       adjetivo [adj.]
+
+mente  mente          advérbio [adv.]
+
+os     o:,s           substantivo ou adjetivo [desc.]
+as     a:,s           substantivo ou adjetivo [desc.]
+o      o:,s           substantivo ou adjetivo [desc.]
+a      o:,s           substantivo ou adjetivo [desc.]
+al     a:l,is         substantivo ou adjetivo [desc.]
+ais    a:l,is         substantivo ou adjetivo [desc.]
+inha   inha:,s        substantivo ou adjetivo [desc.]
+inhas  inha:,s        substantivo ou adjetivo [desc.]
+inho   inho:,s        substantivo ou adjetivo [desc.]
+inhos  inho:,s        substantivo ou adjetivo [desc.]
+
+FIM
+
+#
+# Tentativa de enumeração de paradigmas nominais não virtuais.
+#
+# Nas flexões dos nomes estamos tentando refletir os usos da língua,
+# a fim de evitar gerar formas virtuais.
+#
+# Os padrões de flexão que seguem foram sendo levantados manualmente
+# ao longo dos trabalhos em torno do br.ispell. Neles, os aumentativos
+# e diminutivos muitas vezes estão ausentes. Necessitarão um trabalho
+# extenso ainda para que reflitam com maior fidelidade a flexão
+# dos nomes praticada na linguagem comum.
+#
+
+$PNR = <<FIM;
+1 bonito bonit:a,as,o,os
+2 ele el:a,as,e,es
+3 locutor locutor:,a,as,es
+4 ancião anci:ã,ãs,ão,ões,ães,ãos
+5 divindade divindade:,s
+6 dialogal dialoga:l,is
+7 salvador salvador:,es
+8 fuzil fuzi:l,s
+9 ator at:riz,rizes,or,ores
+10 flexão flex:ão,ões
+11 pão p:ão,ães
+12 campeão campe:ã,ãs,ão,ões
+13 dinamarquês dinamarqu:esa,esas,ês,eses
+14 mandão mand:ão,ões,ona,onas
+15 coronel coron:el,éis
+16 míssil míss:il,eis
+17 leão le:oa,oas,ão,ões
+18 aviador aviador:,es,a,as
+19 segundo segund:a,o
+20 marrom marro:m,ns
+21 lã l:ã,ãs
+22 charlatão charlat:ã,ãs,ão,ães
+23 mão m:ão,ãos
+24 um u:m,ma,ns,mas
+25 lixo lix:o,ão
+26 buraco burac:o,os,ão,ões
+27 anfitrião anfitri:ã,ão
+28 Daniel Daniel:,a
+29 ladrão ladr:a,as,ão,ões
+30 Aureliano Aurelian:o,a
+31 esmagador esmagador:a,as,es
+32 cristão crist:ã,ãs,ão,ãos
+33 café caf:é,és,ezinho,ezinhos
+34 duzentos duzent:as,os
+35 sol s:ol,óis
+36 duque duque:,s,sa,sas
+37 conde conde:,s,ssa,ssas
+38 mau m:á,ás,au,aus
+39 barão bar:ão,ões,onesa,onesas
+40 avô av:ó,ós,ô,ôs
+41 chapéu chapé:u,is
+42 Alexandre Alexandr:e,a
+43 Carlos Carl:a,os
+44 solteiro solteir:a,as,o,os,ão,ões,ona,onas
+45 marquês marqu:ês,esa
+46 lilás lil:ás,ases
+47 convés conv:és,eses
+48 cortês cort:ês,eses
+49 garrafa garraf:a,as,ão,ões,ona,onas
+50 costela costel:a,as,inha,inhas,eta,etas
+51 batata batat:a,as,inha,inhas
+52 bom bo:a,as,m,ns
+53 sultão sult:ana,anas,ão,ões
+54 sacerdote sacerdot:e,es,isa,isas
+55 rei r:ei,eis,ainha,ainhas
+56 flor flor:,es,zinha,zinhas
+57 europeu europ:éia,éias,eu,eus
+58 judeu jud:eu,eus,ia,ias
+59 juiz ju:iz,ízes,íza,ízas
+60 raiz ra:iz,ízes
+61 herói her:oína,oínas,ói,óis
+62 cão cã:o,es
+63 espanhol espanh:ola,olas,ol,óis
+64 nu nu:,a,as,s
+FIM
+
+#
+# Registra uma abreviação
+#
+sub reg_abrev
+{
+    my($a);
+
+    # registra
+    $a = $_[0];
+    if (exists($ABREV{$_[0]})) {
+        fatal("abreviação $_[0] duplicada");
+    }
+    $ABREV{$a} = $_[1];
+
+    # é classe?
+    if (($ABREV{$a} eq 'substantivo') ||
+        ($ABREV{$a} eq 'artigo') ||
+        ($ABREV{$a} eq 'adjetivo') ||
+        ($ABREV{$a} eq 'numeral') ||
+        ($ABREV{$a} eq 'pronome') ||
+        ($ABREV{$a} eq 'advérbio') ||
+        ($ABREV{$a} eq 'preposição') ||
+        ($ABREV{$a} eq 'conjunção') ||
+        ($ABREV{$a} eq 'interjeição') ||
+        ($ABREV{$a} eq 'desconhecida') ||
+        ($ABREV{$a} eq 'onomatopéia') ||
+        ($ABREV{$a} eq 'sem classe')) {
+
+        $CLASSE{$a} = 1;
+    }
+}
+
+#
+# Registra uma forma
+#
+# exemplo de uso:
+#
+#     &reg_forma('s.m.sg.');
+#
+sub reg_forma
+{
+    my($cl,@a,$a,$b);
+
+    # extrai a classe
+    ($cl,$a) = ($_[0] =~ /^([^.]*)\.(.*)$/);
+
+    # primeiro elemento precisa ser uma classe.
+    if (!exists($CLASSE{$cl})) {
+
+        fatal("$_[0] não é forma válida ($cl não é classe)");
+    }
+
+    # remove ponto da última abreviação
+    if (($a ne '') && ($a !~ /\.$/)) {
+        &fatal("$_[0] não é forma válida");
+
+    }
+    $a =~ s/\.$//;
+
+    # os outros elementos precisam ser abreviações registradas
+    foreach $b (split('\.',$a)) {
+
+        if (!exists($ABREV{$b})) {
+            &fatal("$_[0] não é forma válida ($b não é abreviação)");
+        }
+    }
+
+    # registra
+    $FA{$_[0]} = 1;
+}
+
+#
+# Registra todas as abreviações
+# -----------------------------
+#
+sub registre_abrevs
+{
+    #
+    # Classes
+    #
+    &reg_abrev('s','substantivo');
+    &reg_abrev('art','artigo');
+    &reg_abrev('adj','adjetivo');
+    &reg_abrev('num','numeral');
+    &reg_abrev('pron','pronome');
+    &reg_abrev('adv','advérbio');
+    &reg_abrev('prep','preposição');
+    &reg_abrev('conj','conjunção');
+    &reg_abrev('interj','interjeição');
+
+    #
+    # Pseudo-classes
+    #
+    &reg_abrev('desc','desconhecida');
+    &reg_abrev('sc','sem classe');
+    &reg_abrev('onomat','onomatopéia');
+
+    #
+    # Flexão em número
+    #
+    &reg_abrev('sg','singular');
+    &reg_abrev('pl','plural');
+
+    #
+    # Gêneros
+    #
+    # O gênero "uniforme" não existe na NGB mas foi admitido por
+    # necessidade do sistema, ou seja, para que o dicionário base
+    # tenha como indicar que um adjetivo não se flexiona em gênero
+    # (ex. "quente").
+    #
+    &reg_abrev('m','masculino');
+    &reg_abrev('f','feminino');
+    &reg_abrev('e','epiceno');
+    &reg_abrev('2g','comum de dois gêneros');
+    &reg_abrev('sobr','sobrecomum');
+    #&reg_abrev('u','uniforme');
+
+    #
+    # Graus
+    #
+    &reg_abrev('aum','aumentativo');
+    &reg_abrev('dim','diminutivo');
+    &reg_abrev('comp','comparativo');
+    &reg_abrev('infer','inferioridade');
+    &reg_abrev('super','superioridade');
+    &reg_abrev('sup','superlativo');
+    &reg_abrev('abs','absoluto');
+    &reg_abrev('sint','sintético');
+
+    #
+    # Pessoas
+    #
+    &reg_abrev('1a','primeira');
+    &reg_abrev('2a','segunda');
+    &reg_abrev('3a','terceira');
+
+    #
+    # Determinantes
+    #
+    &reg_abrev('def','definido');
+    &reg_abrev('indef','indefinido');
+
+    #
+    # Áreas do saber
+    #
+    &reg_abrev('Astr','Astronomia');
+    &reg_abrev('Biol','Biologia');
+    &reg_abrev('Dir','Direito');
+    &reg_abrev('Econ','Economia');
+    &reg_abrev('Eng','Engenharia');
+    &reg_abrev('Filos','Filosofia');
+    &reg_abrev('Fis','Física');
+    &reg_abrev('Geogr','Geografia');
+    &reg_abrev('Geol','Geologia');
+    &reg_abrev('Hist','História');
+    &reg_abrev('Inf','Informática');
+    &reg_abrev('Mat','Matemática');
+    &reg_abrev('Med','Medicina');
+    &reg_abrev('Mus','Música');
+    &reg_abrev('Psic','Psicologia');
+    &reg_abrev('Quim','Química');
+    &reg_abrev('Teol','Teologia');
+
+    #
+    # Palavras mortas ou recém-nascidas
+    #
+    &reg_abrev('neol','neologismo');
+    &reg_abrev('arc','arcaísmo');
+
+    #
+    # Freqüência do uso
+    #
+    &reg_abrev('rar','de uso raro');
+    &reg_abrev('virt','palavra virtual');
+    &reg_abrev('inex','não existe');
+
+    #
+    # Proveniência
+    #
+    &reg_abrev('reg','regionalismo');
+    &reg_abrev('estr','estrangeirismo');
+    &reg_abrev('gal','galicismo');
+    &reg_abrev('ang','anglicismo');
+
+    #
+    # Nomes próprios
+    #
+    &reg_abrev('pr','nome próprio');
+    &reg_abrev('hom','nome de homem');
+    &reg_abrev('mul','nome de mulher');
+    &reg_abrev('top','topônimo');
+
+    #
+    # Palavras marginalizadas
+    #
+    &reg_abrev('gir','gíria');
+    &reg_abrev('chul','chulo');
+}
+
+#
+# Registro das formas
+# -------------------
+#
+sub registre_formas
+{
+
+    #
+    # Substantivo
+    #
+
+    # menino, meninos, menina, meninas
+    &reg_forma('s.m.');
+    &reg_forma('s.m.pl.');
+    &reg_forma('s.f.');
+    &reg_forma('s.f.pl.');
+
+    # meninão, meninões, meninona, meninonas
+    &reg_forma('s.m.aum.');
+    &reg_forma('s.m.aum.pl.');
+    &reg_forma('s.f.aum.');
+    &reg_forma('s.f.aum.pl.');
+
+    # menininho, menininhos, menininha, menininhas
+    &reg_forma('s.m.dim.');
+    &reg_forma('s.m.dim.pl.');
+    &reg_forma('s.f.dim.');
+    &reg_forma('s.f.dim.pl.');
+
+    #
+    # Artigo
+    #
+
+    # o, a, os, as, um, uma, uns, umas
+    &reg_forma('art.def.m.');
+    &reg_forma('art.def.f.');
+    &reg_forma('art.def.m.pl.');
+    &reg_forma('art.def.f.pl.');
+    &reg_forma('art.indef.m.');
+    &reg_forma('art.indef.f.');
+    &reg_forma('art.indef.m.pl.');
+    &reg_forma('art.indef.f.pl.');
+
+    #
+    # Adjetivo
+    #
+
+    #
+    # OBS. Atualmente estamos tratando apenas as formas sintéticas.
+    # Algum dia trataremos as analíticas. Para tanto,
+    # segue um sumário completo das formas dos adjetivos
+    #
+    # CG: comparativo de igualdade
+    # CS: comparativo de superioridade
+    # CI: comparativo de inferioridade
+    # SS: superlativo sintético
+    # SA: superlativo analítico
+    # SP: superlativo obtido através de prefixação
+    # SD: superlativo obtido através de determinante
+    # RS: superlativo relativo de superioridade
+    # RI: superlativo relativo de inferioridade
+    #
+    # lindo                  M,S
+    # lindos                 M,P
+    # linda                  F,S
+    # lindas                 F,P
+    #
+    # tão lindo quanto       CG,M,S
+    # tão lindos quanto      CG,M,P
+    # tão linda quanto       CG,F,S
+    # tão lindas quanto      CG,F,P
+    #
+    # mais lindo que         CS,M,S
+    # mais lindos que        CS,M,P
+    # mais linda que         CS,F,S
+    # mais lindas que        CS,F,P
+    #
+    # menos lindo que        CI,M,S
+    # menos lindos que       CI,M,P
+    # menos linda que        CI,F,S
+    # menos lindas que       CI,F,P
+    #
+    # lindíssimo             SS,M,S
+    # lindíssimos            SS,M,P
+    # lindíssima             SS,F,S
+    # lindíssimas            SS,F,P
+    #
+    # muito lindo            SA,M,S
+    # muito lindos           SA,M,P
+    # muito linda            SA,F,S
+    # muito lindas           SA,F,P
+    #
+    # hiper-lindo            SA,M,S
+    # hiper-lindos           SA,M,P
+    # hiper-linda            SA,F,S
+    # hiper-lindas           SA,F,P
+    #
+    # o lindo                SA,M,S
+    # os lindos              SA,M,P
+    # a linda                SA,F,S
+    # as lindas              SA,F,P
+    #
+    # o mais lindo           RS,M,S
+    # os mais lindos         RS,M,P
+    # a mais linda           RS,F,S
+    # as mais lindas         RS,F,P
+    #
+    # o menos lindo          RI,M,S
+    # os menos lindos        RI,M,P
+    # a menos linda          RI,F,S
+    # as menos lindas        RI,F,P
+    #
+
+    # bom, bons, boa, boas, quente, quentes
+    &reg_forma('adj.');
+    &reg_forma('adj.m.');
+    &reg_forma('adj.m.pl.');
+    &reg_forma('adj.f.');
+    &reg_forma('adj.f.pl.');
+    &reg_forma('adj.2g.');
+    &reg_forma('adj.2g.pl.');
+
+    # bobão, bobões, bobona, bobonas
+    &reg_forma('adj.m.aum.');
+    &reg_forma('adj.m.aum.pl.');
+    &reg_forma('adj.f.aum.');
+    &reg_forma('adj.f.aum.pl.');
+
+    # baixinho, baixinhos, baixinha, baixinhas
+    &reg_forma('adj.m.dim.');
+    &reg_forma('adj.m.dim.pl.');
+    &reg_forma('adj.f.dim.');
+    &reg_forma('adj.f.dim.pl.');
+
+    # melhor, melhores
+    &reg_forma('adj.2g.comp.super.sint.');
+    &reg_forma('adj.2g.comp.super.sint.pl.');
+
+    # belíssimo, belíssimos, belíssima, belíssimas
+    &reg_forma('adj.m.sup.abs.sint.');
+    &reg_forma('adj.m.sup.abs.sint.pl.');
+    &reg_forma('adj.f.sup.abs.sint.');
+    &reg_forma('adj.f.sup.abs.sint.pl.');
+
+    #
+    # Numeral
+    #
+
+    # primeiro, primeira, primeiros, primeiras
+    &reg_forma('num.m.');
+    &reg_forma('num.f.');
+    &reg_forma('num.m.pl.');
+    &reg_forma('num.f.pl.');
+
+    #
+    # Pronome
+    #
+
+    # eu, me, mim, comigo
+    &reg_forma('pron.2g.1a.');
+
+    # tu, te, ti, contigo
+    &reg_forma('pron.2g.2a.');
+
+    # ele, o, lo, no, lhe, se, si, consigo
+    &reg_forma('pron.m.3a.');
+
+    # ela, a, la, na, lhe, se, si, consigo
+    &reg_forma('pron.f.3a.');
+
+    # nós, nos, conosco
+    &reg_forma('pron.2g.pl.1a.');
+
+    # vós, vos, convosco
+    &reg_forma('pron.2g.pl.2a.');
+
+    # eles, os, los, nos, lhes, se, si, consigo
+    &reg_forma('pron.m.pl.3a.');
+
+    # elas, as, las, nas, lhes, se, si, consigo
+    &reg_forma('pron.f.pl.3a.');
+
+    #
+    # Verbo
+    #
+
+    # v
+
+    #
+    # Advérbio
+    #
+
+    # melhor, pior
+    &reg_forma('adv.comp.super.sint.');
+
+    # agorinha
+    &reg_forma('adv.dim.');
+
+    #
+    # Preposição
+    #
+    &reg_forma('prep.');
+
+    #
+    # Conjunção
+    #
+    &reg_forma('conj.');
+
+    #
+    # Interjeição
+    #
+    &reg_forma('interj.');
+
+    #
+    # Onomatopéia
+    #
+    &reg_forma('onomat.');
+
+    #
+    # Palavras não classificadas
+    #
+    &reg_forma('sc.');
+
+    #
+    # Palavras ainda não classificadas
+    #
+
+    # menino, meninos, menina, meninas
+    &reg_forma('desc.m.');
+    &reg_forma('desc.m.pl.');
+    &reg_forma('desc.f.');
+    &reg_forma('desc.f.pl.');
+
+    # meninão, meninões, meninona, meninonas
+    &reg_forma('desc.m.aum.');
+    &reg_forma('desc.m.aum.pl.');
+    &reg_forma('desc.f.aum.');
+    &reg_forma('desc.f.aum.pl.');
+
+    # menininho, menininhos, menininha, menininhas
+    &reg_forma('desc.m.dim.');
+    &reg_forma('desc.m.dim.pl.');
+    &reg_forma('desc.f.dim.');
+    &reg_forma('desc.f.dim.pl.');
+
+}
+
+#
+# Erro fatal
+#
+sub fatal
+{
+    print(STDERR "$_[0]\n");
+    exit(1);
+}
+
+#
+# Mensagem de debugação
+#
+sub db
+{
+    if ($VERB) {
+        print "$_[0]\n";
+    }
+}
+
+#
+# Converte string para maiúsculas.
+#
+sub mk_cap
+{
+    my($l);
+
+    ($l = $_[0]) =~ tr/a-záéíóúàèìòùãõñçäëïöüâêîôû/A-ZÁÉÍÓÚÀÈÌÒÙÃÕÑÇÄËÏÖÜÂÊÎÔÛ/;
+    return($l);
+}
+
+#
+# Converte string para minúsculas.
+#
+sub mk_low
+{
+    my($l);
+
+    ($l = $_[0]) =~ tr/A-ZÁÉÍÓÚÀÈÌÒÙÃÕÑÇÄËÏÖÜÂÊÎÔÛ/a-záéíóúàèìòùãõñçäëïöüâêîôû/;
+    return($l);
+}
+
+#
+# Altera uma expressão regular para torná-la case-insensitive.
+# Exemplos:
+#
+#     mk_ci('aéi')   = '[Aa][Éé][Ii]'
+#     mk_ci('[aéi]') = '[AaÉéIi]'
+#
+# Obs. funciona apenas para uma subclasse das expressões regulares
+# do Perl.
+#
+sub mk_ci
+{
+    my($i,$c,$e,$n,$f);
+
+    # altera a expressão
+    $e = $_[0];
+    for ($f=$i=0; $i<length($e); ++$i) {
+        $c = substr($e,$i,1);
+        if ($c eq '[') {
+            $f = 1;
+        }
+        elsif ($c eq ']') {
+            $f = 0;
+        }
+        if (exists($OTC{$c})) {
+            if ($f) {
+                $n .= "$OTC{$c}";
+            }
+            else {
+                $n .= "[$OTC{$c}]";
+            }
+        }
+        else {
+            $n .= $c;
+        }
+    }
+    return($n);
+}
+
+#
+# Aprenda as regras de afixos.
+#
+sub aprenda_afixos
+{
+    my($l,$a,$s,$r,$c,$C,$m,$in,$F,$nr,$mode,$t);
+
+    # carrega a tabela de afixos
+    {
+        my(@a);
+
+        @a = stat($PATH_F);
+        if (!defined($a[7])) {
+            fatal("não encontrei $PATH_F");
+        }
+        if (!open(F,$PATH_F)) {
+            fatal("não consegui abrir $PATH_F");
+        }
+        if (!read(F,$AFX,$a[7])) {
+            close(F);
+            fatal("não consegui ler $PATH_F");
+        }
+        close(F);
+    }
+
+    $in = 0;
+    foreach $l (split(/\n/,$AFX)) {
+
+        chomp;
+        $l =~ s/#.*$//;
+
+        # início dos prefixos
+        if ($l =~ /^prefixes/) {
+            $mode = 'P';
+        }
+
+        # início dos sufixos
+        elsif ($l =~ /^suffixes/) {
+            $mode = 'S';
+        }
+
+        # início de bloco de regras
+        elsif ($l =~ /^flag/) {
+
+            if (($in) && ($nr > 0)) {
+                #print "$mode $f $c $nr\n";
+            }
+
+            if (($C,$F) = ($l =~ /^flag (\*|)([A-Za-z]):.*$/)) {
+                $c = ($c eq '*') ? 'Y' : 'N';
+                $in = 1;
+                $nr = 0;
+            }
+            else {
+                fatal("falha no parse de $l");
+            }
+
+            next;
+        }
+
+        if (!$in) {
+            next;
+        }
+
+        # decompõe a regra
+        ($a,$m,$s) = ($l =~ /^(.*)(>)(.*)$/);
+
+        # limpa
+        $a =~ s/ //g;
+        $s =~ s/ //g;
+
+        # sucessor indica remoção e inclusão
+        if ($s =~ /,/) {
+            ($r,$c) = ($s =~ /^(.*),(.*)$/);
+        }
+
+        # sucessor indica apenas remoção
+        elsif ($s =~ /^-/) {
+            $r = $s;
+            $c = '';
+        }
+
+        # sucessor indica apenas inclusão
+        else {
+            $r = '';
+            $c = $s;
+        }
+
+        # limpa
+        $r =~ tr/-//d;
+
+        if (($a eq '') && ($r eq '') && ($c eq '')) {
+            next;
+        }
+
+        # memoriza
+        $RF{"$mode,$a,$r,$c,$F"} = '1';
+    }
+
+    # construa índice de regras
+    foreach $t (keys %RF) {
+        my ($m,$a,$r,$c,$F);
+
+        ($m,$a,$r,$c,$F) = split(",",$t);
+        if ($IRF{$F} eq '') {
+            $IRF{$F} = $t;
+        }
+        else {
+            $IRF{$F} .= ";$t";
+        }
+    }
+}
+
+#
+# Cálculo das raízes possíveis.
+#
+sub lematize
+{
+    my($p,$R,$m,$a,$r,$c,$t,$F,@r);
+
+    $p = $_[0];
+
+    # a palavra comparece como raiz
+    if (exists($IDX_I{$p})) {
+        push(@r,"$p$IDX_I{$p}");
+    }
+
+    # return(@r);
+
+    foreach $t (keys %RF) {
+
+        ($m,$a,$r,$c,$F) = split(",",$t);
+
+        # print "tentando $m,$a,$r,$c,$F\n";
+
+        # tenta aplicar
+        $c = &mk_ci($c);
+        $a = &mk_ci($a);
+
+        #print "complemento: $c\n";
+        #print "antecessor: $a\n";
+
+        #
+        # regra sufixal
+        #
+        if ($m eq 'S') {
+            if (($p =~ /$c$/) || ($c eq '.')) {
+
+                if ($c ne '.') {
+                    ($R) = ($p =~ /^(.*?)$c$/);
+                }
+                if (($R ne '') && ($R !~ /[a-záéíóúàèìòùãõñçäëïöüâêîôû]/)) {
+                    $R .= &mk_cap($r);
+                }
+                else {
+                    $R .= &mk_low($r);
+                }
+
+                if ($R =~ /$a$/) {
+                    if (($FILTRO==0) || ($IDX_I{$R} =~ /$F/)) {
+                        push(@r,"$R/$F");
+                    }
+                }
+            }
+        }
+
+        #
+        # regra prefixal
+        #
+        else {
+            if ($p =~ /^$c/) {
+                ($R) = ($p =~ /^$c(.*?)$/);
+                if ($R !~ /[a-záéíóúàèìòùãõñçäëïöüâêîôû]/) {
+                    $R .= &mk_cap($r);
+                }
+                else {
+                    $R .= &mk_low($r);
+                }
+                if ($R =~ /^$a/) {
+                    if (($FILTRO==0) || ($IDX_I{$R} =~ /$F/)) {
+                        push(@r,"$R/$F");
+                    }
+                }
+            }
+        }
+    }
+
+    return(@r);
+}
+
+#
+# Expansão das formas
+#
+sub expandir
+{
+    my($p,$R,$Z,$m,$a,$r,$c,$t,$F,$f,$uf,$lf);
+
+    # lema e flags
+    $p = $_[0];
+    $f = $_[1];
+
+    # caso particular: regra '.'
+    if ($f eq '.') {
+        $lf = ($OP eq '-I') ? '' : ($p . "\n");
+        return($lf);
+    }
+
+    # caso particular: forma dada explicitamente
+    if ($f !~ /\//) {
+        $lf = ($OP eq '-I') ? '' : ($f . "\n");
+        return($lf);
+    }
+
+    # percorra todas as regras de afixos
+    $lf = '';
+    #foreach $t (keys %RF) {
+    $f =~ s/^\///;
+    foreach $uf (split('/',$f)) {
+
+        foreach $t (split(';',$IRF{$uf})) {
+
+            # campos da regra
+            ($m,$a,$r,$c,$F) = split(",",$t);
+
+            # torne as expressões case-insensitive
+            $a = &mk_ci($a);
+            $r = &mk_ci($r);
+
+            #
+            # Regra sufixal
+            #
+            if ($m eq 'S') {
+                if ((($p =~ /$a$/) && ($p =~ /$r$/)) || ($a eq '.')) {
+                    ($R) = ($p =~ /^(.*?)$r$/);
+                    $Z = $R;
+
+                    if (($R ne '') && ($R !~ /[a-záéíóúàèìòùãõñçäëïöüâêîôû]/)) {
+                        $R .= &mk_cap($c);
+                    }
+                    else {
+                        $R .= &mk_low($c);
+                    }
+
+                    # print "gerei $R de $t\n";
+
+                    # reporte apenas as formas geradas com remoção
+                    # total do lado esquerdo da produção.
+                    if ($OP eq '-I') {
+                        if ($Z eq '') {
+                            # print "gerar $R de $p com $t é problema!\n";
+                            $lf .= "$R\n";
+                        }
+                    }
+
+                    # reporte todas as formas geradas.
+                    else {
+                        $lf .= "$R\n";
+                    }
+                }
+            }
+
+            #
+            # Regra prefixal
+            #
+            else {
+                if (($p =~ /^$a/) || ($a eq '.')) {
+                    ($R) = ($p =~ /^$r(.*?)$/);
+                    if ($R !~ /[a-záéíóúàèìòùãõñçäëïöüâêîôû]/) {
+                        $R = &mk_cap($c) . $R;
+                    }
+                    else {
+                        $R = &mk_low($c) . $R;
+                    }
+                    # print "gerei $R de $t\n";
+                    $lf .= "$R\n";
+                }
+            }
+        }
+    }
+
+    return($lf);
+}
+
+#
+# Expansão linear. Retorna a forma final obtida. Cada forma derivada
+# necessita ser única. Se em algum passo não existir forma derivada,
+# retorna '0'. Se existir mais de uma, retorna '2'.
+#
+sub expande_linear
+{
+    my($i,$j,$k,$lf,$p,$cl);
+
+    $p = $_[0];
+    $j = $_[1];
+
+    # caso particular: regra '.'
+    if ($j eq '.') {
+        return(substr($_[0],0,-1));
+    }
+
+    # caso particular: forma dada explicitamente
+    if ($j !~ /\//) {
+        return($j);
+    }
+
+    # aplica cada uma das flags
+    for ($k=0; $k < length($j); $k+=2) {
+
+        $lf = &expandir($p,substr($j,$k,2));
+
+        # deve haver uma e apenas uma forma
+        if ($lf !~ /\n$/) {
+            return('0');
+        }
+        elsif ($lf =~ /\n./) {
+            return('2');
+        }
+        else {
+            ($p = $lf) =~ tr/\n//d;
+        }
+    }
+
+    return($p);
+}
+
+#
+# Lematize, obtenha as flags e expanda.
+#
+sub lematize_expanda
+{
+    my(@l,$l,$r,$lf);
+
+    @l = &lematize($_[0]);
+    foreach $l (@l) {
+
+        # print "vou expandir $l\n";
+
+        ($r) = ($l =~ /^([^\/]*)/);
+        if ($IDX_I{$r} ne '') {
+            $lf = &expandir($r,$IDX_I{$r});
+            print $lf;
+        }
+    }
+}
+
+#
+# Constrói o repertório de encontros vocálicos
+# -------------------------------------------
+#
+# Ditongos orais:
+#   ai au (áu) éi ei ei éu eu iu ói oi oy ol ou ui
+# Ditongos nasais:
+#   ãe ãi ão am em en õe ui
+# Ditongos crescentes:
+#   ea eo ia ie io oa ua ue (ué? üe?) ui (üi?) uo
+#
+# Tritongos:
+#   eai eão eõe iéi iai ião iõe oei uae
+#   uai uam uão üem uei üei üiu uõe uou
+#
+# Monotongos:
+#   ue ui
+#
+# Hiatos:
+#   aa aí aú ee eí eú ii iu iú oe oí oo oú ue uí uu
+#
+# Casos ainda não classificados:
+# ------------------------------
+#
+# $ fl -v -S | grep -i imprevisto | sort | uniq
+#
+# encontro vocálico imprevisto: eei
+# encontro vocálico imprevisto: eião
+# encontro vocálico imprevisto: eou
+# encontro vocálico imprevisto: êu
+# encontro vocálico imprevisto: iãe
+# encontro vocálico imprevisto: iauí
+# encontro vocálico imprevisto: oiei
+# encontro vocálico imprevisto: uéi
+# encontro vocálico imprevisto: uéia
+# encontro vocálico imprevisto: uía
+# encontro vocálico imprevisto: uío
+# encontro vocálico imprevisto: uóia
+#
+sub construa_ev
+{
+    my($ev);
+
+    # vogais
+    $VOG = 'aeiyouáéíýóúàèìòùãõäëïÿöüâêîôû';
+
+    # ditongos
+    foreach $ev (split(' ','ai au áu éi ei éu eu iu ói oi ou ui')) {
+        $DIT{$ev} = 1;
+    }
+    foreach $ev (split(' ','ãe ãi ão õe ui')) {
+        $DIT{$ev} = 1;
+    }
+    foreach $ev (split(' ','ea eo ia ie io oa ua ue üe ui üi uo')) {
+        $DIT{$ev} = 1;
+    }
+
+    # hiatos
+    foreach $ev (split(' ','aa aí aú ee eí eú ii iu iú oe oí oo oú ue ué uí uu')) {
+        $HIA{$ev} = 1;
+    }
+
+    # tritongos
+    foreach $ev (split(' ','eai eão eõe iéi iai ião iõe oei uae')) {
+        $TRI{$ev} = 1;
+    }
+    foreach $ev (split(' ','uai uam uão üem uei üei üiu uõe uou')) {
+        $TRI{$ev} = 1;
+    }
+
+    # consiste
+    foreach $ev (keys %DIT) {
+        if (exists($HIA{$ev}) && $VERB) {
+            print "obs. $ev é ditongo e hiato\n";
+        }
+    }
+}
+
+#
+# Separador silábico para o Português do Brasil.
+#
+# ERROS:
+#
+# trots-ky (?)
+#
+sub silabas
+{
+    my($i,$p,$pa,$s,@l,@v,@s,$R,$r,$q);
+
+    # a palavra, ex. "carta"
+    $pa = $p = $_[0];
+
+    # converta para minúsculas e troque Y por I
+    $p =~ tr/A-ZÁÉÍÝÓÚÀÈÌÒÙÃÕÑÇÄËÏÖÜÂÊÎÔÛyÿ/a-záéííóúàèìòùãõñçäëïöüâêîôûii/;
+
+    # agora temos "c-a-r-t-a"
+    @l = split(//,$p);
+
+    # com as flags de ligação "c-0-a-0-r-0-t-0-a"
+    for ($i=0; $i<$#l; ++$i) {
+        $s[$i] = 0;
+    }
+
+    # marque as vogais
+    for ($i=0; $i<=$#l; ++$i) {
+
+        $v[$i] = ($l[$i] =~ /[$VOG]/) ? 1 : 0;
+    }
+
+    #
+    # tente classificar os encontros vocálicos
+    #
+    for ($i=0; $i<$#l; ) {
+        my($j,$ev);
+
+        # ignore as consoantes
+        if ($v[$i] == 0) {
+            ++$i;
+            next;
+        }
+
+        for($j=$i+1, $ev=$l[$i]; ($j<=$#l) && ($v[$j]); ++$j) {
+            $ev .= $l[$j];
+        }
+
+        # vogal isolada
+        if (--$j <= $i) {
+        }
+
+        # encontro de duas vogais
+        elsif (($j-$i) == 1) {
+
+            # monotongo
+            if (($i>0) &&
+                (($l[$i-1] eq 'q') || ($l[$i-1] eq 'q')) &&
+                ($l[$i] eq 'u') &&
+                (($l[$j] eq 'e') || ($l[$j] eq 'i'))) {
+
+                $s[$i] = 1;
+            }
+
+            # ditongo
+            elsif (exists($DIT{$ev})) {
+                $s[$i] = 1;
+            }
+
+            # hiatos
+            elsif (exists($HIA{$ev})) {
+            }
+
+            #
+            # Hiatos bem caracterizados:
+            #
+            # 1. Se a primeira vogal não for nasalada,
+            # então só há ditongo se a segunda vogal for
+            # i ou u.
+            #
+            # 2. Vogais dobradas são sempre hiato.
+            #
+            elsif ((($l[$i] !~ /[ãõ]/) && ($l[$j] !~ /[iu]/)) ||
+                ($l[$i] eq $l[$j])) {
+            }
+
+            # caso imprevisto: considere hiato
+            else {
+                if ($VERB) {
+                    print "encontro vocálico imprevisto: $ev\n";
+                }
+            }
+        }
+
+        # encontro de três vogais
+        elsif (($j-$i) == 2) {
+
+            # Tritongos
+            if (exists($TRI{$ev})) {
+
+                $s[$i] = 1;
+                $s[$i+1] = 1;
+            }
+
+            # vogal + ditongo
+            elsif ((($l[$i] !~ /[iue]/) || exists($HIA{"$l[$i]$l[$i+1]"})) &&
+                exists($DIT{"$l[$i+1]$l[$j]"})) {
+
+                $s[$i+1] = 1;
+            }
+
+            # ditongo + vogal
+            elsif (exists($DIT{"$l[$i]$l[$i+1]"}) &&
+                (exists($HIA{"$l[$i+1]$l[$j]"}) || ($l[$j] !~ /[iue]/))) {
+
+                $s[$i] = 1;
+            }
+
+            # vogal + vogal + vogal
+            elsif ((($l[$i] !~ /[eiu]/) &&
+                    ($l[$i+1] !~ /[eiu]/) &&
+                    ($l[$j] !~ /[eiu]/)) ||
+                   (exists($HIA{"$l[$i]$l[$i+1]"}) &&
+                    exists($HIA{"$l[$i+1]$l[$j]"}))) {
+
+            }
+
+            else {
+                if ($VERB) {
+                    print "encontro vocálico imprevisto: $ev\n";
+                }
+            }
+        }
+
+        # encontro de quatro vogais
+        elsif (($j-$i) == 3) {
+
+            # vogal + tritongo
+            if ((($l[$i] !~ /[iue]/) || exists($HIA{"$l[$i]$l[$j]"})) &&
+                exists($TRI{"$l[$i+1]$l[$i+2]$l[$j]"})) {
+
+                $s[$i+1] = 1;
+                $s[$i+2] = 1;
+            }
+
+            # tritongo + vogal
+            elsif (exists($TRI{"$l[$i]$l[$i+1]$l[$i+2]"}) &&
+                (exists($HIA{"$l[$i+2]$l[$j]"}) || ($l[$j] !~ /[iue]/))) {
+
+                $s[$i] = 1;
+                $s[$i+1] = 1;
+            }
+
+            else {
+                if ($VERB) {
+                    print "encontro vocálico imprevisto: $ev\n";
+                }
+            }
+        }
+
+        # encontro de mais de quatro vogais
+        elsif ($VERB) {
+            print ("oops.. encontro de mais de quatro vogais em $p\n");
+        }
+
+        $i = $j+1;
+    }
+
+    # ligue cada vogal com a consoante antecedente
+    for ($i=0; $i<$#l; ++$i) {
+
+        if (($l[$i+1] =~ /[$VOG]/) &&
+            ($l[$i] !~ /[$VOG]/)) {
+
+            $s[$i] = 1;
+            $v[$i] = 1;
+        }
+    }
+
+    #
+    # ligue os grupos consonantais terminados por r, l ou h
+    #
+    # Combinações admitidas:
+    #
+    # br cr dr fr gr kr pr tr vr wr
+    # bl cl dl fl gl kl pl tl vl wl
+    # ch gh kh lh nh ph th sh
+    #
+    # ATENÇÃO: esta regra pode causar erros não decidíveis pela
+    # ortografia. Exemplos:
+    #
+    #     su-blin-gual (errado) ao invés de sub-lin-gual (correto)
+    #     su-bro-gar (errado) ao invés de sub-ro-gar (correto)
+    #
+    for ($i=0; $i<$#l; ++$i) {
+        my($j);
+
+        if (((($l[$i] =~ /[bcdfgkptvw]/) && ($l[$i+1] =~ /[rl]/)) ||
+             (($l[$i] =~ /[cgklnpts]/) && ($l[$i+1] eq 'h'))) &&
+            ($l[$i] ne $l[$i+1]) &&
+            (($v[$i]==0) || ($v[$i+1]==0))) {
+
+            $s[$i] = 1;
+
+            # marca todo o grupo da direita como vocalizado
+            if ($v[$i]) {
+                for ($j=$i; ($j<$#l) && ($s[$j]); ) {
+                    $v[++$j] = 1;
+                }
+            }
+
+            # marca todo o grupo da esquerda como vocalizado
+            if ($v[$i+1]) {
+                for ($j=$i; ($j>=0) && ($s[$j]); --$j) {
+                    $v[$j] = 1;
+                }
+            }
+        }
+    }
+
+    # tenta agregar consoantes isoladas
+    {
+        # consoante inicial isolada
+        if (($s[0]==0) && ($v[0] == 0)) {
+            $s[0] = 1;
+            $v[0] = $v[1];
+
+            # isso não deveria ocorrer no português
+            if (($v[0] == 0) && $VERB) {
+                print "oops.. três consoantes no início de $p\n";
+            }
+        }
+
+        #
+        # Neste momento, toda consoante isolada é seguida por
+        # consoante, porque já ligamos todas as vogais à consoante
+        # precedentes, quando existe. Como grupos consonantais
+        # no meio das palavras (exceto aqueles já tratados) não
+        # pertencem a uma mesma sílaba, basta ligar essas consoantes
+        # isoladas ao grupo da esquerda.
+        #
+        for ($i=1; $i<=$#l-1; ++$i) {
+            if (($v[$i] == 0) &&
+                ($s[$i-1] == 0) &&
+                ($s[$i] == 0)) {
+
+                $s[$i-1] = 1;
+                $v[$i] = $v[$i-1];
+
+                # isso não deveria ocorrer no português
+                if (($v[$i] == 0) && $VERB) {
+                    print "oops.. três consoantes no meio de $p\n";
+                }
+            }
+        }
+
+        # ligue a consoante final isolada ao grupo da esquerda
+        if (($#l>0) && ($s[$#l-1]==0) && ($v[$#l] == 0)) {
+
+            $s[$#l-1] = 1;
+            $v[$#l] = $v[$i-1];
+
+            # isso não deveria ocorrer no português
+            if (($v[$#l] == 0) && $VERB) {
+                print "oops.. três consoantes no final de $p\n";
+            }
+        }
+    }
+
+    # construa o resultado
+    @l = split(//,$pa);
+    for ($i=0, $r=$l[0]; $i<$#l; ++$i) {
+
+        if ($s[$i] == 0) {
+            $r .= '-';
+        }
+        $r .= $l[$i+1];
+    }
+
+    # compare com a resposta, se houver alguma
+    if ($#_ > 0) {
+        $R = 0;
+        for ($i=1; $i<=$#_; ++$i) {
+
+            $_ = $_[$i];
+            #tr/A-ZÁÉÍÝÓÚÀÈÌÒÙÃÕÑÇÄËÏÖÜÂÊÎÔÛ/a-záéíýóúàèìòùãõñçäëïöüâêîôû/;
+            if ($r eq $_) {
+                $R = 1;
+                last;
+            }
+        }
+        if ($R) {
+            $r .= " (acertou)";
+        }
+        else {
+            $r .= " (errou)";
+            ++$ERROS;
+        }
+    }
+    else {
+        ++$DUV;
+    }
+    ++$TOTAL;
+
+    return($r);
+}
+
+#
+# Cálculo do valor fonético de uma palavra.
+#
+# Codificação fonética
+# --------------------
+#
+# Adotamos uma representação fonética ingênua, em parte para
+# que possa ser lida por qualquer pessoa, e em parte porque
+# isso é suficiente para a automação parcial da revisão de
+# listas de palavras. Algumas particularidades podem ser lidas
+# nos comentários ao longo do código.
+#
+# Falta tratar, entre outras coisas:
+#
+# 1. Distinção pela tônica (péle != pelé, fálas != faláz)
+# 2. Distinção pela quantidade (acôrdo != acórdo)
+# 3. Pronúncias do X (re-la-char, e-za-lar, ma-csi-mo, e-ci-tar)
+# 4. Casos onde o acento é indiferente (má = ma)
+#
+# Observações:
+# ------------
+#
+# 1. um tratamento completo necessita de informação
+# dicionarizada por-palavra, indisponível neste momento.
+#
+# 2. esse código deveria produzir um conjunto de possíveis
+# pronúncias, e não apenas uma.
+#
+sub vf
+{
+    my($s,$p,$r);
+
+    # separe as sílabas
+    $p = &silabas(mk_low($_[0]));
+
+    # aqui convém ir contra as regras gramaticais e unir R
+    # e S dobradas.
+    $p =~ s/s-s/-ss/g;
+    $p =~ s/r-r/-rr/g;
+
+    # S intervocálico soa como Z (rosa = roza)
+    $p =~ s/([$VOG])-s([$VOG])/$1-z$2/g;
+
+    # Z final soa como S (ra-paz = ra-pas)
+    $p =~ s/z$/s/;
+
+    # um pequeno quebra-galho: o R forte (mu-rro, ra-to) é codificado
+    # com 'R' maiúsculo.
+    $p =~ s/rr/R/g;
+    $p =~ s/^r/R/g;
+
+    # Tente unificar as variantes do português (-u). Isso por
+    # enquanto é somente uma tentativa, e gera vários falsos
+    # positivos.
+    if ($UNIF) {
+
+        # ignore C antes de consoante (acto > ato, exceção: pacto != pato)
+        $p =~ s/c-([^$VOG])/-$1/;
+
+        # ignore P antes de T (óptimo > ótimo, exceção: apto != ato)
+        $p =~ s/p-t/-t/;
+
+        # ignore B antes de D (súbdito > súdito)
+        $p =~ s/b-d/-d/;
+
+        # ON final vira ÃO (elé-tron > elé-trão)
+        $p =~ s/on$/ão/;
+    }
+
+    # vícios ou características de pronúncia
+    if ($SB) {
+    
+        # L final soa como U
+        $p =~ s/l$/u/;
+    
+        # E final soa como I
+        $p =~ s/e$/i/;
+    
+        # r desaparece nos grupos -ar, -er, -ir, -or finais
+        $p =~ s/ar$/á/;
+        $p =~ s/er$/é/;
+        $p =~ s/ir$/í/;
+        $p =~ s/or$/ó/;
+    }
+
+    # trata individualmente cada sílaba
+    foreach $s (split(/-/,$p)) {
+
+        # H inicial é mudo (Ha-roldo > A-roldo)
+        if ($s =~ /^h/) {
+            $s = substr($s,1);
+        }
+
+        # PH soa como F
+        $s =~ s/ph/f/g;
+
+        # H precedido de consoante (exceto C,L,N) é mudo (Car-tha-go > Car-ta-go)
+        $s =~ s/([bdfghjkmpqrstvwxz])h/$1/g;
+
+        # K[AOU] tem o valor de C[AOU] (Kar-pov > Car-pov)
+        $s =~ s/k([aouáóúàòùãõñäÿöüâôû])/c$1/g;
+
+        # K[EI] tem o valor de QU[EI] (Ke-nia > Que-nia)
+        $s =~ s/k([eiyéíýèìëïÿêî])/qu$1/g;
+
+        # represente C[EI], S fraco ou SS não finais, SS e Ç com Ç
+        $s =~ s/ss$/s/g;
+        $s =~ s/ss/ç/g;
+        $s =~ s/s(.)/ç$1/g;
+        $s =~ s/c([eiyéíýèìëïÿêî])/ç$1/g;
+
+        # Y soa como I
+        $s =~ s/ÿ/ï/g;
+        $s =~ s/ý/í/g;
+        $s =~ s/y/i/g;
+
+        # exceto nos ditongos, represente nasais com vogal + M
+        $s =~ s/^ã$/am/;
+        $s =~ s/^õ$/om/;
+        $s =~ s/^ã([^$VOG])/am$1/;
+        $s =~ s/^õ([^$VOG])/om$1/;
+        $s =~ s/([^$VOG])ã$/$1am/;
+        $s =~ s/([^$VOG])õ$/$1om/;
+        $s =~ s/([^$VOG])ã([^$VOG])/$1am$2/g;
+        $s =~ s/([^$VOG])õ([^$VOG])/$1om$2/g;
+        $s =~ s/[aáàäâã]n$/am/g;
+        $s =~ s/[eéèëê]n$/em/g;
+        $s =~ s/[iíìïî]n$/im/g;
+        $s =~ s/[oóòöôõ]n$/om/g;
+        $s =~ s/[uúùüû]n$/um/g;
+
+        # concatena
+        $r .= "-$s";
+    }
+
+    return(substr($r,1));
+}
+
+#
+# Extrai o conteúdo do verbete para os globais $LEMA, $CL, etc.
+#
+sub analise_verbete
+{
+    my($l,@a,$b,$i,$lema,$cl,$id,$sem,$subm,$atr,$val);
+
+    $l = $_[0];
+    @a = split('\|',$l);
+    $b = $a[0];
+
+    # origens
+    ($subm) = ($b =~ / ([0-9,]*)$/);
+    $b = substr($b,0,-length($subm)-1);
+    ($lema,$cl,$id,$sem) = ($b =~ /^(.+) ([^ ]+) ([0-9]+) (.+)$/);
+
+    # semântica ausente ?
+    if (($lema eq '') ||
+        ($cl eq '') ||
+        ($id eq '') ||
+        ($subm eq '')) {
+
+        ($lema,$cl,$id) = ($b =~ /^(.+) ([^ ]+) ([0-9]+)$/);
+        $sem = '';
+    }
+
+    if (($lema eq '') ||
+        ($cl eq '') ||
+        ($id eq '') ||
+        ($subm eq '')) {
+
+        print "b = \"$b\"\n";
+        print "lema = $lema\n";
+        print "cl = $cl\n";
+        print "id = $id\n";
+        print "subm = $subm\n";
+
+        &db("faltou elemento essencial no verbete");
+        return(0);
+    }
+
+    if ($cl !~ /\.$/) {
+        $cl .= '.';
+    }
+
+    $LEMA = $lema;
+    $CL   = $cl;
+    $ID   = $id;
+    $SEM  = $sem;
+    $SUBM = $subm;
+    undef(@ATR);
+    undef(@SUBM);
+
+    for ($i=1; $i<=$#a; ++$i) {
+
+        $b = $a[$i];
+
+        # origens
+        ($subm) = ($b =~ / ([0-9,]*)$/);
+        $b = substr($b,0,-length($subm)-1);
+
+        # atributo (e valor)
+        $atr = $b;
+
+        if (($atr eq '') || ($subm eq '')) {
+            &db("faltou atributo ou origem de atributo");
+            return(0);
+        }
+
+        push(@ATR,$atr);
+        push(@SUBM,$subm);
+    }
+
+    return(1);
+}
+
+#
+# Compacta o verbete numa string.
+#
+sub sintetize_verbete
+{
+    my($l,$i);
+
+    $l = "$LEMA $CL $ID $SEM $SUBM";
+    if ($#ATR >= 0) {
+        for ($i=0; $i<=$#ATR; ++$i) {
+            $l .= "|$ATR[$i] $SUBM[$i]";
+        }
+    }
+    return($l);
+}
+
+#
+# converte paradigma nominal para a estrutura interna EPN,
+# linha a linha. O segundo parâmetro indica se o modo é
+# relaxado, isto é, se se deve ou não exigir que a descrição
+# da forma (ex. "f.pl.") é forma registrada.
+#
+sub pn2epn
+{
+    my($n,$i,$l,$r,$f);
+
+    # consiste item de paradigma nominal
+    $l = $_[0];
+    $r = $_[1];
+    ($n,$i) = ($l =~ /^ *([^ ]+) +([^ ]*) *$/);
+    if ($n eq '') {
+        ($n,$f,$i) = ($l =~ /^ *([^ ]+) +([^ ]+) +([^ ]*) *$/);
+    }
+    else {
+        $f = 0;
+    }
+    if (($n eq '') ||
+        (($r == 0) && (!exists($FA{$n})) && ($n !~ /^\d*$/)) ||
+        ($i eq '')) {
+
+        fatal("formato inválido ($l)");
+    }
+
+    # início de paradigma nominal
+    if ($n =~ /^\d*$/) {
+        $PNC = $n;
+        $EPN[$n] = $i;
+    }
+
+    # item de paradigma nominal
+    else {
+        if ($PN[$PNC] ne '') {
+            $PN[$PNC] .= ';';
+        }
+        if ($f == 0) {
+            $PN[$PNC] .= "$n $i";
+        }
+        else {
+            $PN[$PNC] .= "$n $f $i";
+        }
+    }
+}
+
+#
+# Carga do dicionário
+#
+sub carrega_base
+{
+    my($modo,$l);
+
+    if ($DB_LIDO) {
+        fatal('tentativa de reler o dicionário base');
+    }
+
+    if (!open(F,$PATH_B)) {
+
+        # modo estrito produz erro fatal
+        if ($_[0]) {
+            fatal("não consegui abrir $PATH_B");
+        }
+
+        # modo não estrito retorna
+        else {
+            return(0);
+        }
+    }
+
+    $modo = 0;
+    while (<F>) {
+
+        # remova comentário ou final da linha
+        ($l = $_) =~ s/ *#.*$//;
+        $l =~ tr/\r\n//d;
+
+        # lendo o preâmbulo
+        if ($modo < 5) {
+
+            if ($l =~ /^origens/) {
+                $modo = 1;
+            }
+
+            elsif ($l =~ /^paradigmas verbais/) {
+                $modo = 2;
+            }
+
+            elsif ($l =~ /^paradigmas nominais/) {
+                $modo = 3;
+            }
+
+            elsif ($l =~ /^semântica/) {
+                $modo = 4;
+            }
+
+            elsif ($l =~ /^verbetes/) {
+                $modo = 5;
+            }
+
+            # item
+            elsif ($l !~ /^ *$/) {
+                my ($n,$i);
+
+                # consiste item de origem ou paradigma verbal
+                if (($modo == 1) || ($modo == 2) || ($modo == 4)) {
+                    ($n,$i) = ($l =~ /^([0-9]*) (.*)$/);
+                    if (($n eq '') || ($i eq '')) {
+                        fatal("formato inválido ($l)");
+                    }
+                }
+
+                if ($modo == 1) {
+                    $ORIG[$n] = $i;
+                }
+
+                elsif ($modo == 2) {
+                    $PV[$n] = $i;
+                }
+
+                elsif ($modo == 3) {
+                    &pn2epn($l,1);
+                }
+
+                # semântica
+                elsif ($modo == 4) {
+                    $SEMANT[$n] = $i;
+                }
+            }
+        }
+
+        # lendo as entradas
+        elsif ($l !~ /^ *$/) {
+
+            if (&analise_verbete($l) == 0) {
+                fatal("formato inválido de verbete ($l)");
+            }
+
+            # memoriza e cria índice invertido
+            push(@VERBETE,$l);
+            $LH{$LEMA} .= ($LH{$LEMA} eq '') ? $#VERBETE : ",$#VERBETE";
+        }
+    }
+
+    db("lidos $#EPN paradigmas nominais");
+
+    close(F);
+    $DB_LIDO = 1;
+    return(1);
+}
+
+#
+# Calcule a união de duas listas de origens.
+#
+sub union
+{
+    my(%a,@b,$i,$n,$r);
+
+    # calcula a união
+    foreach $i (split(/,/,$_[0])) {
+        $a{$i} = 1;
+    }
+    @b = split(/,/,$_[1]);
+    $n = 1;
+    foreach $i (@b) {
+        if (!exists($a{$i})) {
+            $a{$i} = 1;
+            $n = 1;
+        }
+    }
+
+    # nada de novo
+    if ($n == 0) {
+        return('');
+    }
+
+    # transforme a união em string e retorne-a
+    $r = '';
+    #foreach $i (sort {$a <=> $b} keys %a) {
+    foreach $i (keys %a) {
+        $r .= ",$i";
+    }
+    return(substr($r,1));
+}
+
+#
+# Cria, edita ou agrega material ao dicionário. O formato da submissão
+# é o mesmo do verbete do dicionário base, descrito na documentação
+# da ferramenta fl, exceto pela identificação da acepção. Se esta for
+# zero, o verbete é acrescentado como nova acepção.
+#
+# Exemplos:
+#
+# 1. Acrescenta uma nova acepção para o lema 'mão,f.' com
+# semântica 'ajuda'.
+#
+#     &edit_dict('mão f 0 ajuda 1');
+#
+# 2. Edita o lema 'mão,f.' na acepção 3. Fixa a semântica
+# como sendo 'ajuda'.
+#
+#     &edit_dict('mão f 3 ajuda 1');
+#
+# 3. Acrescenta a palavra 'bijeção', indicando tratar-se de um termo
+# matemático.
+#
+#     &edit_dict('bijeção f 0 ajuda 1');
+#
+sub edit_dict
+{
+    my($lema,$cl,$id,$sem,@a);
+    my($a,$i,$j,$k);
+    my(@newatr,$newsubm,@newsubm);
+
+    # extrai os elementos do verbete submetido
+    if (&analise_verbete($_[0]) == 0) {
+        &fatal("formato inválido de verbete $_[0]");
+    }
+    $lema = $LEMA;
+    $cl   = $CL;
+    $id   = $ID;
+    $sem  = $SEM;
+    @newatr = @ATR;
+    $newsubm = $SUBM;
+    @newsubm = @SUBM;
+
+    # normaliza o lema
+    #{
+        # nomes próprios devem ter inicial maiúscula
+        # siglas em maiúsculas (há exceções: "CNPq")
+        # outras palavras em minúsculas
+    #}
+
+    # tentativa de dedução da classe
+    if ($CL eq '') {
+
+        # nomes próprios são substantivos
+
+        # nos demais casos indique que a classe é desconhecida
+        $CL = 'D';
+    }
+
+    # busca usando o índice invertido
+    $j = -1;
+    if ($id ne '') {
+        @a = split(',',$LH{$lema});
+        for ($i=0; ($j<0) && ($i<=$#a); ++$i) {
+            if (&analise_verbete($VERBETE[$a[$i]]) == 0) {
+                &fatal("formato inválido de verbete $_[0]\n");
+            }
+            if ($ID == $id) {
+                $j = $a[$i];
+            }
+        }
+    }
+
+    # adicionar entrada
+    if ($j < 0) {
+
+        # obtém um identificador de acepção
+        for ($ID=1, $i=0; $i==0; ++$ID) {
+            $i = (",$LH{$lema}," !~ /,$ID,/);
+        }
+
+        $LEMA = $lema;
+        $CL   = $cl;
+        $SEM  = $sem;
+        $SUBM = &union('',$newsubm);
+        @ATR = @newatr;
+        @SUBM = @newsubm;
+
+        push(@VERBETE,&sintetize_verbete());
+    }
+
+    # editar entrada
+    else {
+        my($r);
+
+        # substitua a classe e a semântica
+        $CL = $cl;
+        $SEM = $sem;
+
+        # reforce as origens básicas
+        $r = &union($SUBM,$newsubm);
+        if ($r ne '') {
+            $SUBM = $r;
+        }
+
+        # adicione os atributos submetidos
+        for ($i=0; $i<=$#newatr; ++$i) {
+
+            # verifique se já ocorria
+            for ($k=0; ($k>=0) && ($k<=$#ATR); ++$k) {
+
+                # o atributo já ocorria: reforce origens
+                if ($ATR[$k] eq $newatr[$i]) {
+                    $r = &union($SUBM[$k],$newsubm[$k]);
+                    if ($r ne '') {
+                        $SUBM[$k] = $r;
+                    }
+                    $k = -2;
+                }
+            }
+
+            # o atributo é novo: adicione
+            if ($k >= 0) {
+                push(@ATR,$newatr[$i]);
+                push(@SUBM,$newsubm[$i]);
+            }
+        }
+
+        $VERBETE[$j] = &sintetize_verbete();
+
+        # print "$VERBETE[$j]\n";
+    }
+}
+
+#
+# formata linha de paradigma nominal
+#
+sub formata_pn
+{
+    my($cl,$j,$f);
+
+    $cl = $_[0];
+    $j = $_[1];
+    $f = $_[2];
+    $_ = "  $cl" . (' ' x (12-length($cl))) . $j . (' ' x (14-length($j))) . "# $f\n";
+    return($_);
+}
+
+#
+# Salva o dicionário base.
+#
+sub salva_base
+{
+    my($i,$j,$k,$lf,$p,$cl);
+
+    # a seção de origens terá que ser criada por outrém se o dicionário
+    # base não tiver sido lido.
+    if ($DB_LIDO != 0) {
+        print "\norigens\n";
+        for ($i=1; $i<=$#ORIG; ++$i) {
+            print '' . $i . " $ORIG[$i]\n";
+        }
+    }
+
+    # a seção de paradigmas verbais terá que ser criada por outrém se
+    # o dicionário base não tiver sido lido.
+    if ($DB_LIDO != 0) {
+        print "\nparadigmas verbais\n";
+        for ($i=1; $i<=$#PV; ++$i) {
+            print '' . $i . " $PV[$i]\n";
+        }
+    }
+
+    print "\nparadigmas nominais\n";
+    for ($i=1; $i<=$#PN; ++$i) {
+
+        print '' . "\n$i $EPN[$i]\n";
+        foreach $j (split(/;/,$PN[$i])) {
+
+            $p = $EPN[$i];
+
+            # separa classificação das flags
+            ($cl,$j) = ($j =~ /^([^ ]*) +(.*)$/);
+
+            # aplica cada uma das flags
+            $p = &expande_linear($p,$j);
+
+            # falha na expansão
+            if ($p eq '0') {
+                &fatal("nenhuma forma para $EPN[$i]$j");
+            }
+            elsif ($p eq '2') {
+                &fatal("múltiplas formas para $EPN[$i]$j");
+            }
+
+            # Resultado
+            print &formata_pn($cl,$j,$p);
+
+        }
+    }
+
+    print "\nsemântica\n";
+    for ($i=0; $i<=$#SEMANT; ++$i) {
+        print "$i $SEMANT[$i]\n";
+    }
+
+    print "\nverbetes\n";
+    for ($i=0; $i<=$#VERBETE; ++$i) {
+        print "$VERBETE[$i]\n";
+    }
+}
+
+#
+# Completa abreviações de classes de uso comum.
+#
+sub completa
+{
+    $_ = $_[0];
+
+    # substantivo masculino singular
+    if ($_ eq 's.m.') {
+        return('s.m.s.');
+    }
+
+    # substantivo feminino singular
+    elsif ($_ eq 's.f.') {
+        return('s.f.s.');
+    }
+
+    # substantivo comum de dois gêneros singular
+    elsif ($_ eq 's.2g.') {
+        return('s.2g.s.');
+    }
+
+    # substantivo sobrecomum singular
+    elsif ($_ eq 's.s.') {
+        return('s.s.s.');
+    }
+
+    # adjetivo masculino singular
+    elsif ($_ eq 'a.m.') {
+        return('a.m.s.');
+    }
+
+    # adjetivo feminino singular
+    elsif ($_ eq 'a.f.') {
+        return('a.f.s.');
+    }
+
+    # adjetivo invariável no gênero, singular
+    elsif ($_ eq 'a.') {
+        return('a.i.s.');
+    }
+
+    # outros
+    else {
+        return($_);
+    }
+}
+
+#
+# Inicializa o vetor das terminações das palavras.
+#
+# Algumas exceções das terminações:
+#
+# 1. Exemplos de palavras terminadas em ar, er, ir e or que
+# não são verbos:
+#
+#     azar
+#     éter
+#     faquir
+#     calor
+#
+sub init_tp
+{
+    $TP[0] = "";
+    $TP[1] = "ar";
+    $TP[2] = "er";
+    $TP[3] = "ir";
+    $TP[4] = "ão";
+    $TP[5] = "éu";
+    $TP[6] = "ú";
+    $TP[7] = "o";
+    $TP[8] = "a";
+    $TP[9] = "e";
+    $TP[10] = "l";
+    $TP[11] = "is";
+    $TP[12] = "s";
+    $TP[13] = "r";
+}
+
+#
+# Calcula a terminação de uma palavra.
+#
+sub tp
+{
+    my($i);
+
+    $_ = $_[0];
+    for ($i=1; $i<=$#TP; ++$i) {
+
+        if (/$TP[$i]$/i) {
+            return($TP[$i]);
+        }
+    }
+    return(0);
+}
+
+#
+# Testa se a palavra $_[1] satisfaz a propriedade $_[0].
+#
+sub prop
+{
+    my($p);
+
+    $p = $_[0];
+    $_ = $_[1];
+
+    # 1-999: terminações
+    if ((1 <= $p) && ($p < 1000)) {
+        return(/$TP[$p]$/i);
+    }
+
+    return(0);
+}
+
+#
+# Registra a produção $_[0] > $_[1].
+#
+sub registre
+{
+    $P[++$#P] = "$_[0]>$_[1]";
+}
+
+#
+# Calcula o prefixo comum mais longo entre $_[0] e $_[1].
+#
+sub mpc
+{
+    my($a,$b,$i);
+
+    if (length($_[0]) < length($_[1])) {
+        $a = $_[0];
+        $b = $_[1];
+    }
+    else {
+        $b = $_[0];
+        $a = $_[1];
+    }
+    $i=length($a);
+    while (($i>0) && (substr($a,0,$i) ne substr($b,0,$i))) {
+        --$i;
+    }
+    return(substr($a,0,$i));
+}
+
+#
+# Aplique a produção $_[0] na palavra $_[1]. Se $_[2] for diferente
+# de zero, inverte a produção.
+#
+sub produza
+{
+    my($a,$b,$ca,$cb,$cp,$g,$i,$pc,$p,$s,$sa);
+
+    # produção
+    $i = $_[0];
+    if ($_[2]) {
+        ($b,$cb,$a,$ca) = ($P[$i] =~ /^([^,]*),([^>]*)>([^,]*),(.*)$/);
+    }
+    else {
+        ($a,$ca,$b,$cb) = ($P[$i] =~ /^([^,]*),([^>]*)>([^,]*),(.*)$/);
+    }
+
+    # palavra e classe
+    ($p,$cp) = split(',',$_[1]);
+
+    # completa as classes
+    $ca = &completa($ca);
+    $cb = &completa($cb);
+    $cp = &completa($cp);
+
+    # as classes precisam ser compatíveis
+    if (($cp eq $ca) ||
+        (($cp eq 's.m.') && ($ca eq 's.'))) {
+
+    }
+    else {
+        db("$a > $b não se aplica (1)");
+        return('');
+    }
+
+    # as terminações precisam ser compatíveis
+    if (&tp($a) ne &tp($p)) {
+        db("$a > $b não se aplica (2)");
+        return('');
+    }
+
+    # prefixo comum mais longo
+    $pc = &mpc($a,$b);
+    $sa = substr($a,length($pc));
+
+    # tipo 1: adição simples de terminação (livro > livros)
+    if (($b ne $a) && ($b =~ /^$a/)) {
+        db("$a > $b encaixa como tipo 1");
+        ($s) = ($b =~ /^$a(.*)$/);
+        $g = "$p$s";
+    }
+
+    # tipo 2: adição simples de prefixo (crescer > decrescer)
+    elsif (($b ne $a) && ($b =~ /$a$/)) {
+        db("$a > $b encaixa como tipo 2");
+        ($s) = ($b =~ /^(.*)$a$/);
+        $g = "$s$p";
+    }
+
+    # tipo 3: eliminação simples de terminação (livros > livro)
+    elsif (($a =~ /^$b/) &&
+           (($s) = ($a =~ /^$b(.*)$/)) &&
+           ($p =~ /$s$/)) {
+
+        db("$a > $b encaixa como tipo 3");
+        ($g) = ($p =~ /^(.*)$s$/);
+    }
+
+    # tipo 4: eliminação simples de prefixo (decrescer > crescer)
+    elsif (($a =~ /$b$/) &&
+           (($s) = ($a =~ /^(.*)$b$/)) &&
+           ($p =~ /^$s/)) {
+
+        db("$a > $b encaixa como tipo 4");
+        ($g) = ($p =~ /^$s(.*)$/);
+    }
+
+
+    # tipo 5: troca da terminação (aluno > aluna)
+    elsif (($pc ne '') &&
+           (($b !~ /^$a/) && ($a !~/^$b/)) &&
+           ($p =~ /$sa$/)) {
+
+        db("$a > $b encaixa como tipo 5");
+        ($s) = ($b =~ /^$pc(.*)$/);
+        $g = substr($p,0,length($p)-length($a)+length($pc)) . $s;
+    }
+
+    # nenhum tipo
+    else {
+        db("$a > $b não se aplica (3)");
+        $g = '';
+    }
+
+    if ($g ne '') {
+        return("$p,$cp > $g,$cb");
+    }
+
+    return('');
+}
+
+#
+# Tenta aplicar todas as produções à palavra $_[0].
+#
+sub gere
+{
+    my($p,$cp,$i,$r);
+
+    # palavra e classe
+    ($p,$cp) = split(',',$_[0]);
+
+    for ($i=0; $i<=$#P; ++$i) {
+
+        $r = &produza($i,$_[0],0);
+        if ($r eq '') {
+            $r = &produza($i,$_[0],1);
+        }
+        if ($r ne '') {
+            if ($VERB) {
+                ($_ = $P[$i]) =~ s/>/ > /;
+                $_ = " (de $_)";
+            }
+            else {
+                $_ = '';
+            }
+            print "$r$_\n";
+        }
+    }
+}
+
+#
+# Registre as produções conhecidas.
+#
+# Esse conteúdo vem principalmente de:
+#
+# Celso Cunha, Gramática de Base, quarta edição, Fundação de
+# Assistência ao Estudante, Rio de Janeiro, 1986.
+#
+# Celso Pedro Luft, Dicionário Gramatical da Língua Portuguesa,
+# segunda edição, Globo, Porto Alegre, 1971.
+#
+sub registre_prods
+{
+
+#
+# 1. Derivação prefixal
+# =====================
+#
+
+#
+# 1.1 Prefixos de origem latina
+#
+&registre('alpino,a.','cisalpino,a.');
+&registre('platino,a.','cisplatino,a.');
+&registre('dizer,v.','contradizer,v.');
+&registre('crescer,v.','decrescer,v.');
+&registre('ativo,a.m.','inativo,a.m.');
+&registre('muscular,a.','intramuscular,a.');
+&registre('linear,a.','justalinear,a.');
+&registre('visão,s.m.','previsão,s.m.');
+&registre('conceito,s.m.','preconceito,s.m.');
+&registre('fazer,v.','refazer,v.');
+&registre('tirar,v.','retirar,v.');
+&registre('ceder,v.','retroceder,v.');
+&registre('classe,s.f.','subclasse,s.f.');
+&registre('povoado,a.m.','superpovoado,a.m.');
+&registre('alpino,a.m.','transalpino,a.m.');
+&registre('sensível,a.','ultra-sensível,a.');
+&registre('reitor,s.m.','vice-reitor,s.m.');
+&registre('conde,s.m.','visconde,s.m.');
+&registre('presidente,s.m.','vice-presidente,s.m.');
+
+#
+# 1.2 Prefixos de origem grega
+#
+&registre('teatro,s.m.','anfiteatro,s.m.');
+&registre('tese,s.m.','antítese,s.m.');
+&registre('corrosivo,a.m.','anticorrosivo,a.m.');
+&registre('papa,s.m.','antipapa,s.m.');
+&registre('duque,s.m.','arquiduque,s.m.');
+&registre('anjo,s.m.','arcanjo,s.m.');
+&registre('térmico,a.m.','endotérmico,a.m.');
+&registre('tensão,s.m.','hipertensão,s.m.');
+
+#
+# 2. Derivação Sufixal
+# ====================
+#
+
+#
+# 2.1 Sufixos aumentativos
+#
+&registre('parede,s.f.','paredão,s.m.s.a.');
+&registre('boca,s.f.','bocarra,s.f.s.a.');
+&registre('poeta,s.m.','poetastro,s.m.s.a.');
+
+#
+# 2.2 Sufixos diminutivos
+#
+&registre('voz,s.f.','vozinha,s.f.s.d.');
+&registre('cão,s.m','cãozinho,s.m.s.d.');
+&registre('casa,s.f.','casebre,s.f.s.d.');
+&registre('pequeno,a.m.','pequenino,a.m.s.d.');
+&registre('rio,s.m.','riacho,s.m.s.d.');
+&registre('burro,s.m.','burrico,s.m.s.d.');
+&registre('via,s.f.','viela,s.f.s.d.');
+&registre('lugar,s.m.','lugarejo,s.m.s.d.');
+&registre('rapaz,s.m.','rapazito,s.m.s.d.');
+&registre('rapaz,s.m.','rapazola,s.m.s.d.');
+&registre('velho,s.m.','velhote,s.m.s.d.');
+&registre('chuva,s.f.','chuvisco,s.m.s.d.');
+
+#
+# 2.3 Sufixos diminutivos eruditos
+#
+&registre('corpo,s.m.','corpúsculo,s.m.s.d.');
+&registre('parte,s.f.','partícula,s.f.s.d.');
+&registre('globo,s.m.','glóbulo,s.m.s.d.');
+&registre('pele,s.f.','película,s.f.s.d.');
+&registre('verso,s.m.','versículo,s.m.s.d.');
+&registre('questão,s.f.','questiúncula,s.f.s.d.');
+
+#
+# 2.4 Sufixos que formam substantivos de substantivos
+#
+&registre('boi,s.m.','boiada,s.f.');
+&registre('colher,s.f.','colherada,s.f.');
+&registre('faca,s.f.','facada,s.f.');
+&registre('dente,s.m.','dentada,s.f.');
+&registre('bispo,s.m.','bispado,s.m.');
+&registre('carbono,s.m.','carbonato,s.m.');
+&registre('pluma,s.f.','plumagem,s.f.');
+&registre('arroz,s.m.','arrozal,s.m.');
+&registre('café,s.m.','cafezal,s.m.');
+&registre('lama.s.f.','lamaçal,s.f.');
+&registre('livro,s.m.','livraria,s.f.');
+&registre('patife,s.m.','patifaria,s.f.');
+&registre('veste,s.f.','vestiário,s.m.');
+&registre('vinha,s.f','vinhedo,s.m.');
+&registre('barba,s.f.','barbeiro,s.m.');
+&registre('copa,s.f.','copeira,s.f.');
+&registre('galinha,s.f.','galinheiro,s.m.');
+&registre('delegado,s.m.','delegacia,s.f.');
+&registre('reitor,s.m.','reitoria,s.f.');
+&registre('mulher,s.f.','mulherio,s.m.');
+&registre('ferro,s.m.','ferrugem,s.m.');
+
+#
+# 2.4 Sufixos que formam substantivos de adjetivos
+#
+&registre('cruel,a.','crueldade,s.f.');
+&registre('banal,a.','banalidade,s.f.');
+&registre('digno,a.m.','dignidade,s.f.');
+&registre('atroz,a.','atrocidade,s.f.');
+&registre('grato,a.m.','gratidão,s.f.');
+&registre('honra,a.f.','honradez,s.f.');
+&registre('belo,a.m.','beleza,s.f.');
+&registre('alegre,a.','alegria,s.f.');
+&registre('velho,a.m.','velhice,s.f.');
+&registre('calvo,a.m.','calvície,s.f.');
+&registre('amargo,a.m.','amargor,s.m.');
+&registre('amargo,a.m.','amargura,s.f.');
+&registre('alto,s.m.','altitude,s.m.');
+&registre('doce,a.','doçura,s.f.');
+
+#
+# 2.5 Sufixos que formam substantivos de adjetivos e de substantivos
+#
+&registre('real,a.','realismo,s.m.');
+&registre('símbolo,s.m.','simbolismo,s.m.');
+&registre('gaulês,a.m.','galicismo,s.m.');
+&registre('cínico,a.m.','cinismo,s.m.');
+
+#
+# 2.5 Sufixos que formam adjetivos de adjetivos e de substantivos
+#
+&registre('real,a.','realista,a.');
+&registre('símbolo,s.m.','simbolista,a.');
+&registre('norte,s.m.','nortista,a.');
+&registre('dente,s.m.','dentista,a.');
+
+#
+# 2.6 Sufixos que formam substantivos de verbos
+#
+&registre('lembrar,v.','lembrança,s.f.');
+&registre('tolerar,v.','tolerância,s.f.');
+&registre('diferir,v.','diferença,s.f.');
+&registre('estudar,v.','estudante,s.2g.');
+&registre('tolerar,v.','tolerante,s.2g.');
+&registre('jogar,v.','jogador,s.m.');
+&registre('interromper,v.','interruptor,s.m.');
+&registre('agredir,v.','agressor,s.m.');
+&registre('trair,v.','traição,s.f.');
+&registre('agredir,v.','agressão,s.f.');
+&registre('beber,v.','bebedouro,s.m.');
+&registre('pintar,v.','pintura,s.f.');
+&registre('tonsurar,v.','tonsura,s.f.');
+&registre('acolher,v.','acolhimento,s.m.');
+&registre('sofrer,v.','sofrimento,s.m.');
+
+#
+# 2.7 Sufixos que formam adjetivos de substantivos
+#
+&registre('mania,s.f.','maníaco,a.m.');
+&registre('barba,s.f.','barbado,a.m.');
+&registre('dente,s.m.','denteado,a.m.');
+&registre('judeu,s.m.','judaico,a.m.');
+&registre('cônjuge,s.s.','conjugal,a.');
+&registre('escola,s.f.','escolar,a.');
+&registre('serra,s.f.','serrano,a.m.');
+&registre('camões,s.m.','camoniano,a.m.');
+&registre('alemanha,s.f.','alemão,a.m.');
+&registre('dia,s.f.','diário,a.m.');
+&registre('casa,s.f.','caseiro,a.m.');
+&registre('mulher,s.f.','mulherengo,a.m.');
+&registre('terra,s.f.','terreno,a.m.');
+&registre('terra,s.f.','terrestre,a.');
+&registre('campo,s.m.','campestre,a.');
+&registre('corpo,s.m.','corpulento,a.m.');
+&registre('ciúmes,s.m.','ciumento,a.m.');
+&registre('ferro,s.m.','férreo,a.m.');
+&registre('mouro,s.m.','mourisco,a.m.');
+&registre('europa,s.f.','europeu,a.m.');
+&registre('céu,s.m.','celeste,a.');
+&registre('natal,s.m.','natalício,a.m.');
+&registre('geometria,s.f.','geométrico,a.m.');
+&registre('febre,s.f.','febril,a.');
+&registre('londres,s.m.','londrino,a.m.');
+&registre('cristal,s.m.','cristalino,a.m.');
+&registre('israel,s.m.','israelita,a.');
+&registre('israel,s.m.','israelense,a.');
+&registre('riso,s.m.','risonho,a.m.');
+&registre('veneno,s.m.','venenoso,a.m.');
+&registre('luxo,s.m.','luxuoso,a.m.');
+&registre('aroma,s.f.','aromático,a.m.');
+&registre('ponta,s.f.','pontudo,a.m.');
+&registre('barba,s.f.','barbudo,a.m.');
+
+#
+# 2.8 Sufixos que formam adjetivos de verbos
+#
+&registre('tolerar,v.','tolerante,a.');
+&registre('resistir,v.','resistente,a.');
+&registre('constituir,v.','constituinte,a.');
+&registre('seguir,v.','seguinte,a.');
+&registre('durar,v.','durável,a.');
+&registre('perecer,v.','perecível,a.');
+&registre('punir,v.','punível,a.');
+&registre('fugir,v.','fugidio,a.m.');
+&registre('afirmar,v.','afirmativo,a.m.');
+&registre('pensar,v.','pensativo,a.m.');
+&registre('mover,v.','movediço,a.m.');
+&registre('quebrar,v.','quebradiço,a.m.');
+&registre('durar,v.','duradouro,a.m.');
+&registre('preparar,v.','preparatório,a.m.');
+&registre('satisfazer,v.','satisfatório,a.m.');
+
+#
+# 2.9 Sufixos que formam verbos de substantivos e adjetivos
+#
+&registre('embrulho,s.m.','embrulhar,v.');
+&registre('folha,s.f.','folhear,v.');
+&registre('penhora,s.f.','penhorar,v.');
+&registre('salto,s.m.','saltitar,v.');
+&registre('cabeça,s.f.','cabecear,v.');
+&registre('força,s.f.','forcejar,v.');
+&registre('dedo,s.m.','dedilhar,v.');
+&registre('chuvisco,s.m.','chuviscar,v.');
+&registre('útil,s.m.','utilizar,v.');
+
+#
+# 2.10 Sufixo que forma advérbios
+#
+&registre('benigno,a.m.','benignamente,adv.');
+&registre('franco,a.m.','francamente,adv.');
+
+#
+# 3. Composição
+# =============
+#
+
+#
+# 3.1 Radicais latinos utilizados como primeiro elemento
+#
+&registre('cultura,s.f.','agricultura,s.f.');
+&registre('destro,a.m.','ambidestro,a.m.');
+&registre('avô,s.m.','bisavô,s.m.');
+&registre('distante,a.','eqüidistante,a.');
+&registre('disciplinar,a.f.','multidisiplinar,a.f.');
+&registre('potente,a.','onipotente,a.');
+&registre('cultura,s.f.','piscicultura,s.f.');
+&registre('grafia,s.f.','radiografia,s.f.');
+&registre('círculo,s.m.','semicírculo,s.m.');
+&registre('centenário,s.m.','sesquicentenário,s.m.');
+&registre('campeão,s.m.','tricampeão,s.m.');
+
+#
+# 3.1 Radicais latinos utilizados como segundo elemento
+#
+&registre('rei,s.m.','regicida,a.');
+&registre('bem,s.m.','benéfico,a.m.');
+&registre('centro,s.m.','centrífugo,a.m.');
+&registre('carne,s.f.','carnívoro,a.m.');
+
+#
+# 3.2 Radicais gregos utilizados como primeiro elemento
+#
+&registre('nave,s.f.','aeronave,s.f.');
+&registre('grafia,s.f.','geografia,s.f.');
+&registre('grafia,s.f.','etnografia,s.f.');
+&registre('grafia,s.f.','bibliografia,s.f.');
+
+#
+# 3.3 Radicais gregos utilizados como segundo elemento
+#
+&registre('ídolo,s.m.','idolatria,s.f.');
+
+#
+# 4. Flexão dos substantivos
+# ==========================
+#
+
+#
+# 4.1 Plural dos substantivos
+#
+&registre('livro,s.m.','livros,s.m.pl.');
+&registre('monte,s.m.','montes,s.m.pl.');
+&registre('falta,s.f.','faltas,s.f.pl.');
+&registre('ação,s.f.','ações,s.f.pl.');
+&registre('bobalhão,s.m.s.a.','bobalhões,s.m.pl.a.');
+&registre('alemão,s.m.','alemães,s.m.pl.');
+&registre('cidadão,s.m.','cidadãos,s.m.');
+&registre('pilar,s.m.','pilares,s.m.pl.');
+&registre('mulher,s.f.','mulheres,s.f.pl.');
+&registre('inglês,s.m.','ingleses,s.m.pl.');
+&registre('animal,s.m.','animais,s.m.pl.');
+&registre('pastel,s.m.','pastéis,s.m.pl.');
+&registre('barril,s.m.','barris,s.m.pl.');
+&registre('fóssil,s.m.','fósseis,s.m.pl.');
+&registre('fogãozinho,s.m.s.d.','fogõeszinhos,s.m.pl.d.');
+
+#
+# 4.2. Flexão do gênero
+#
+&registre('aluno,s.m.','aluna,s.f.');
+&registre('sacerdote,s.m.','sacerdotisa,s.f.');
+&registre('diácono,s.m.','diaconisa,s.f.');
+&registre('camponês,s.m.','camponesa,s.f.');
+&registre('galo,s.m.','galinha,s.f.');
+&registre('leitor,s.m.','leitora,s.f.');
+&registre('leitão,s.m.','leitoa,s.f.');
+&registre('anão,s.m.','anã,s.f.');
+&registre('espertalhão,s.m.s.a.','espertalhona,s.f.s.a.');
+&registre('ladrão,s.m.','ladra,s.f.');
+&registre('ator,s.m.','atriz,s.f.');
+&registre('conde,s.m.','condessa,s.f.');
+&registre('mestre,s.f.','mestra,s.f.');
+
+#
+# 4.3 Flexão de grau
+#
+&registre('copo,s.m.','copinho,s.m.s.d.');
+
+#
+# 5. Flexão dos Adjetivos
+# =======================
+#
+
+#
+# 5.1 Plural dos adjetivos
+#
+&registre('belo,a.m.','belos,a.m.pl.');
+&registre('bela,a.f.','belas,a.f.pl.');
+&registre('alegre,a.i.','alegres,a.i.pl.');
+&registre('febril,a.m.','febris,a.m.pl.');
+
+#
+# 5.2 Flexão do gênero
+#
+&registre('belo,a.m.','bela,a.f.');
+&registre('crú,a.m.','crua,a.f.');
+&registre('burguês,a.m.','burguesa,a.f.');
+&registre('tentador,a.m.','tentadora,a.f.');
+&registre('vão,a.m.','vã,a.f.');
+&registre('ateu,a.m.','atéia,a.f.');
+&registre('judeu,a.m.','judia,a.f.');
+&registre('ilhéu,a.m.','ilhôa,a.f.');
+
+#
+# 5.3 Graus dos Adjetivos
+#
+&registre('inteligente,a.','inteligentíssimo,a.m.s.');
+&registre('vulgar,a.','vulgaríssimo,a.m.s.');
+&registre('lindo,a.m.','lindíssimo,a.m.s.');
+&registre('notável,a.','notabilíssimo,a.m.s.');
+&registre('veloz,a.','velocíssimo,a.m.s.');
+
+#
+# Teste: verbos italianos
+#
+# &registre('amare,v.','amo,v.1ps.');
+# &registre('amare,v.','ami,v.2ps.');
+# &registre('amare,v.','ama,v.3ps.');
+# &registre('amare,v.','amiamo,v.1pp.');
+# &registre('amare,v.','amate,v.2pp.');
+# &registre('amare,v.','amano,v.3pp.');
+#
+
+#
+# Anotações do br.ispell 2.5
+#
+
+#
+# abandono,s.m. > abandonado,adj.
+# abatimento,s.m. > abatido,adj.
+# abdômen,s.m. > abdominal,adj.
+# absoluto,s.m. > absoluto,adj.
+# adolescente,adj. > adolescência,s.f.
+# agradecido,adj. > agradecimento,s.m.
+# alegria,s.f. > alegre,adj.2g.
+# amor,s.m. > amante,adj.2g.
+# anel,s.m. > anular,adj.2g.
+# anjo,s.m. > angélico
+# ardor,s.m. > ardoroso
+# armamentismo,s.m. > armamentista
+# arremesso,s.m. > arremessador
+# avareza,s.f. > avarento
+# avaro,adj. > avareza
+# barba,s.f. > barbudo,adj.
+# belo,s.m. > belo,adj.
+# bigode,s.m. > bigodudo,adj.
+# bom,s.m. > bom,adj.
+# calor,s.m. > acalorado
+# caridade,s.f. > caridoso
+# casado,adj. > casamento
+# celibato,s.m. > celibatário
+# cicatriz,s.f. > cicatrização,s.f.
+# cílio,s.m. > ciliar,adj.
+# círculo,s.m. > circular,adj.
+# ciúmes,s.m. > ciumento
+# cólera,s.f. > encolerizado
+# comércio,s.m. > comercial,adj.2g.
+# comprometido,adj. > comprometimento
+# compromisso,s.m. > compromissado
+# confiança,s.f. > confiante
+# coragem,s.f. > corajoso
+# corrupção,s.f. > corrompido
+# criança,s.f. > criancice,s.f.
+# cultura,s.f. > cultural,adj.
+# curva,s.f. > curvo,adj.
+# delicado,adj. > delicadeza
+# dente,s.m. > dentição,s.f.
+# derrota,s.f. > derrotado
+# desejo,s.m. > desejoso
+# deserto,s.m. > desértico,adj.
+# deserto,s.m. > desertificado,adj.
+# desgraça,s.f. > desgraçado
+# diálogo,s.m. > dialogal
+# dilacerado,adj. > dilaceramento
+# diligente,adj.2g. > diligência
+# divinizar,v. > divinização
+# divino,s.m. > diviníssimo
+# divino,s.m. > divinizar
+# divórcio,s.m. > divorciado
+# dodecágono,s.m. > dodecagonal,adj.
+# doença,s.f. > doente
+# doente,s.2g. > adoentado
+# dor,s.f. > dolorido
+# entusiasmo,s.m. > entusiasmado
+# escravidão,s.f. > escravizado
+# espanto,s.m. > espantado
+# esperança,s.f. > esperançoso
+# esperto,adj. > esperteza
+# estômago,s.m. > estomacal,adj.
+# excitado,adj. > excitação
+# êxtase,s.m. > extático
+# feliz,adj.2g. > felicidade
+# feliz,adj.2g. > felizardo
+# feto,s.m. > fetal,adj.
+# fome,s.f. > faminto
+# fortuna,s.f. > afortunado
+# fracasso,s.m. > fracassado
+# gene,s.m. > genético,adj.
+# gênio,s.m. > genial,adj.2g.
+# glória,s.f. > glorioso
+# gula,s.f. > guloso
+# hexágono,s.m. > hexagonal,adj.
+# homem,s.m. > humano,adj.
+# humano,adj. > humanidade,s.f.
+# humano,adj. > humanismo,s.m.
+# humilhado,adj. > humilhação
+# idealismo,s.m. > idealista
+# ignorante,adj.2g. > ignorância
+# interesse,s.m. > interessado
+# intestino,s.m. > intestinal,adj.
+# inveja > invejoso
+# ira > irado
+# ira > irascível
+# irritação > irritado
+# jovem,adj. > juventude,s.f.
+# justo > justiça
+# libertino > libertinagem
+# luto > enlutado
+# luxúria > luxuriento
+# maduro,adj. > maturidade,s.f.
+# mágoa > magoado
+# mama,s.f. > mamário,adj.
+# medo > amedrontado
+# melancolia > melancólico
+# miséria > miserável
+# morada,s.f. > morador,adj.
+# músculo,s.m. > muscular,adj.
+# músculo,s.m. > musculatura,s.f.
+# nervoso > nervosismo
+# olfato,s.m. > olfativo,adj.
+# osso,s.m. > ossatura,s.f.
+# óvulo,s.m. > ovulação,s.f.
+# paixão > apaixonado
+# pentágono,s.m. > pentagonal,adj.
+# peregrino > peregrinação
+# perfeito > perfeição
+# perversão > pervertido
+# perverso > perversidade
+# pobre > pobreza
+# porto,s.m. > portuário,adj.
+# pragmático > pragmatismo
+# prático > praticidade
+# prédio,s.m. > predial,adj.
+# preguiça > preguiçoso
+# preguiça > preguiçoso
+# prostituição > prostituído
+# prudência > prudente
+# púbis,s.f. > púbico,adj.
+# pulmão,s.m. > pulmonar,adj.2g.
+# quadrado,s.m. > quadrangular,adj.
+# raiva > enraivecido
+# renascido > renascimento
+# retângulo,s.m. > retangular,adj.
+# reta,s.f. > reto,adj.
+# rico > riqueza
+# salvar,v. > salvado, adj.
+# salvar,v. > salvo, adj.
+# santo > santíssimo
+# saudade > saudoso
+# saúde > sadio
+# saúde > são
+# saúde > saudável
+# simples > simplicidade
+# soberba > ensoberbecido
+# soberba,s.f. > soberbo,adj.
+# sofisticação > sofisticado
+# solícito > solicitude
+# som,s.m. > sonoro,adj.
+# sorte > sortudo
+# só > solidão
+# sucesso > bem-sucedido
+# suor,s.m. > sudoração,s.f.
+# superstição > supersticioso
+# temperado > temperança
+# teologia > teológico
+# terno > ternura
+# triângulo,s.m. > triangular,adj.
+# triste > triteza
+# triunfo > triunfante
+# velho,adj. > velhice,s.f.
+# verbo,s.m. > verbal,adj.2g.
+# vergonha > envergonhado
+# verme,s.m. > verminose,s.f.
+# vibração > vibrante
+# vício > viciado
+# virgem,s.f. > virginal,adj.
+# vitória > vitorioso
+# viúvo > viuvez
+#
+
+}
+
+#
+# Converte os paradigmas nominais para tabelas de afixos do ispell.
+#
+sub gera_afixos_nominais
+{
+    my($p,$l,$id,$pr,$r,$d,$ds,$f,@T,$tf,$sq,$t);
+
+    # tentativas
+    @T = ('/A      f.',        # menino > menina
+          '/G      f.',        # abelha > abelhão
+          '/H      f.',        # ancião > anciã
+          '/J      f.',        # ladrão > ladra, conde > condessa
+          '/L      f.',        # barão  > baronesa
+          '/H/B    f.pl.',     # ancião > anciãs
+          '/B      pl.',       # número /B
+          '/K      pl.',       # mão > mãos
+          '/I      pl.',       # míssil > mísseis, cão > cães
+          '/A/B    f.pl.',     # gênero e número /A
+          '/G/B    f.pl.',     # gênero e número /G
+          '/J/B    f.pl.',     # ladrão > ladra > ladras
+          '/L/B    f.pl.',     # barão  > baronesa > baronesas
+          '/A/D    f.aum.',    # solteiro > solteira > solteirona
+          '/A/D/B  f.aum.pl',  # solteiro > solteira > solteirona > solteironas
+          '/C      dim.',      # grau /C
+          '/D      aum.',      # grau /D
+          '/D/B    aum.pl.',   # grau e número /D/B
+          '/C/A    f.dim.',    # grau e gênero /C/A
+          '/C/B    dim.pl.',   # grau e número /C/B
+          '/C/A/B  f.dim.pl.', # grau, gênero e número /C/A/B
+          '/F      dim.',      # par > parzinho
+          '/F/B    dim.pl.',   # par > parzinho > parzinhos
+          '/F/A    dim.',      # flor > florzinho > florzinha
+          '/F/A/B  dim.pl.');  # flor > florzinho > florzinha > florzinhas
+
+    #
+    # para cada paradigma
+    #
+    $LPNR = '';
+    foreach $p (split/\n/,$PNR) {
+
+        # extrai identificador e formas fatoradas
+        chomp($p);
+        ($id,$l,$pr) = split(/ /,$p);
+
+        # formas por extenso
+        ($r,$ds) = split(/:/,$pr);
+
+        # início do paradigma
+        $LPNR .= "\n$id $l\n";
+
+        # tenta deduzir como gerar cada forma a partir do lema
+        foreach $d (split(/,/,$ds)) {
+
+            $f = $r . $d;
+
+            # é o próprio lema
+            if ($f eq $l) {
+            }
+
+            else {
+                for ($tf=0; $tf<=$#T; ++$tf) {
+                    ($sq,$t) = split(/ +/,$T[$tf]);
+
+                    if ($f eq expande_linear($l,$sq)) {
+                        $LPNR .= &formata_pn($t,$sq,$f);
+                        $tf = $#T + 2;
+                    }
+                }
+                if ($tf <= ($#T+1)) {
+                    &fatal("não sei gerar $f a partir de $l");
+                }
+            }
+        }
+    }
+
+    # converte para EPN
+    foreach $l (split(/\n/,$LPNR)) {
+        $l =~ s/ *#.*$//;
+        if ($l !~ /^ *$/) {
+            &pn2epn($l,1);
+        }
+    }
+
+    $AF_LIDO = 1;
+}
+
+#
+# Carrega o texto no vetor @lf.
+#
+sub segmenta
+{
+    my($l,@a,$f,$ni);
+
+    #
+    # Algumas aplicações populares geram caracteres não-ISO, que não
+    # podem ser convenientemente interpretados de forma standard.
+    # Aparentemente são sempre separadores. Aqui preparamos a
+    # eliminação desses caracteres.
+    #
+    for ($l=128; $l<=160; ++$l) {
+        $ni .= pack("C",$l);
+    }
+
+    #
+    # por precaução, adicione os caracteres ASC não visíveis e o TAB.
+    #
+    for ($l=0; $l<32; ++$l) {
+        $ni .= pack("C",$l);
+    }
+
+    # normaliza e copia o texto para o vetor @lf.
+    open(F,$_[0]);
+    while (<F>) {
+
+        # elimine caracteres não-ISO ou não visíveis.
+        $l = $_;
+        $l =~ s/[$ni]/ /g;
+
+        # isola a pontuação
+        $l =~ s/([,.;:()"?!])/ $1 /g;
+
+        # armazene uma linha de separação como espaço
+        if ($l =~ /^ *$/) {
+            push(@lf,' ');
+        }
+
+        # segmenta e empilha
+        else {
+            $l =~ s/^ +//;
+            $l =~ s/ +$//;
+            if ($l ne '') {
+                @a = split(/ +/,$l);
+                push(@lf,@a);
+            }
+            else {
+                push(@lf,' ');
+            }
+        }
+    }
+    close(F);
+}
+
+#
+# Varre o texto do vetor @lf procurando lexias complexas.
+#
+sub busca_lcs
+{
+    my($i,$j,$k,%t,%nt,%st,$a,$b,$n,$x);
+
+    # calcula todos os segmentos de tamanho 2
+    $a = $lf[0];
+    for ($i=0; $i<$#lf-1; ++$i) {
+        $b = $lf[$i+1];
+        if (($a !~ /^($NI)$/) && ($b !~ /^($NI)$/)) {
+            $nt{"$a $b"} .= ",$i";
+        }
+        $a = $b;
+    }
+
+    # selecione aqueles suficientemente freqüentes
+    foreach $i (keys %nt) {
+        if ($nt{$i} =~ /(,\d*){$N,}/) {
+            $t{$i} = $nt{$i};
+        }
+    }
+    undef(%nt);
+    %st = %t;
+
+    # extenda as lexias para a esquerda
+    for ($x=1; $x>0; ) {
+        my(@a,%c,%cc);
+
+        $x = 0;
+
+        # extenda um passo para a esquerda
+        foreach $i (keys %st) {
+
+            @a = split(/,/,substr($t{$i},1));
+            undef(%c);
+
+            # obtenha extensões à esquerda
+            foreach $j (@a) {
+                if ($j > 0) {
+                    $a = $lf[$j-1];
+                    if ($a !~ /^($NI)$/) {
+                        $c{"$a $i"} .= "," . ($j-1);
+                    }
+                }
+            }
+
+            # selecione as suficientemente freqüentes
+            foreach $k (keys %c) {
+                if ($c{$k} =~ /(,\d*){$N,}/) {
+                    $t{$k} = $c{$k};
+                    $nt{$k} = $c{$k};
+                    $x = 1;
+                }
+            }
+        }
+
+        # prepare o passo seguinte
+        if ($x) {
+            undef(%st);
+            %st = %nt;
+            undef(%nt);
+        }
+    }
+
+#
+# oops! todo segmento que pode ser obtida com extensão à direita
+# já o foi com a extensão à esquerda.
+#
+
+#
+#    # prepare a extensão à direita
+#    undef(%nt);
+#    %st = %t;
+#
+#    # extenda as lexias para a direita
+#    for ($x=1; $x>0; ) {
+#        my(@a,%c,%cc);
+#
+#        $x = 0;
+#
+#        # extenda um passo para a direita
+#        foreach $i (keys %st) {
+#
+#            @a = split(/,/,substr($t{$i},1));
+#            $n = ($i =~ s/ / /g) + 1;
+#           undef(%c);
+#
+#            # obtenha extensões à direita
+#            foreach $j (@a) {
+#                if (($j+$n) <= $#lf) {
+#                    $a = $lf[$j+$n];
+#                    if ($a !~ /^($NI)$/) {
+#                        $c{"$i $a"} .= "," . $j;
+#                    }
+#                }
+#            }
+#
+#            # selecione as suficientemente freqüentes
+#            foreach $k (keys %c) {
+#                if ($c{$k} =~ /(,\d*){$N,}/) {
+#                    $t{$k} = $c{$k};
+#                    $nt{$k} = $c{$k};
+#                    $x = 1;
+#                }
+#            }
+#        }
+#
+#        # prepare o passo seguinte
+#        if ($x) {
+#            undef(%st);
+#            %st = %nt;
+#            undef(%nt);
+#        }
+#    }
+#
+
+    # filtre
+    undef(%nt);
+    foreach $k (keys %t) {
+        if (($k =~ /^($NL) /io) ||
+            ($k =~ / ($NL)$/io)) {
+
+            delete($t{$k});
+        }
+    }
+
+    # elimine as sub-lexias
+    foreach $k (keys %t) {
+        my(@s,$i,$j,$l);
+
+        @s = split(/ /,$k);
+        for ($i=0, $j=1, $l=$s[0]; $j<$#s; ++$j) {
+            $l .= " $s[$j]";
+            delete($t{$l});
+        }
+        for ($i=1; $i<$#s; ++$i) {
+            $l = $s[$i];
+            for ($j=$i+1; $j<=$#s; ++$j) {
+                $l .= " $s[$j]";
+                delete($t{$l});
+            }
+        }
+    }
+
+    # apresente os resultados
+    foreach $k (keys %t) {
+        $j = ($t{$k} =~ s/,/,/g);
+        print "$j $k\n";
+    }
+}
+
+#
+# Formas não admitidas no interior ou nos extremos das lexias.
+#
+sub init_nl
+{
+    # não admita artigos nos extremos, nem a preposição a,
+    $NL = 'a|as|o|os';
+    $NL .= '|uma|umas|um|uns';
+
+    # nem algumas outras preposições (combinadas ou não),
+    # obs. problema: pelo,s. (ex. pelo de cachorro)
+    $NL .= '|à|às|ao|aos';
+    $NL .= '|por|para|com|até';
+    $NL .= '|de|da|das|do|dos';
+    $NL .= '|pela|pelas|pelo|pelos';
+    $NL .= '|em|na|nas|no|nos';
+    $NL .= '|numa|numas|num|nuns';
+    $NL .= '|nesta|nestas|neste|nestes';
+
+    # nem algumas conjunções,
+    $NL .= '|se|ou|mas';
+
+    # nem alguns advérbios,
+    $NL .= '|já|não|mais';
+
+    # nem alguns pronomes pessoais,
+    $NL .= '|eu|ela|elas|ele|eles';
+    $NL .= '|minha|minhas|meu|meus|sua|suas|seu|seus';
+
+    # nem os relativos ou demonstrativos,
+    $NL .= '|que|qual|quais|cuja|cujas|cujo|cujos';
+    $NL .= '|isso|isto|essa|essas|esse|esses|esta|estas|aquele|aquelas';
+
+    # nem algumas formas verbais
+    $NL .= '|é|foi';
+
+    # não admita sinais de pontuação como parte de lexias
+    $NI = ',|.|;|:|(|)|"|\?|!|-';
+
+    # nem o separador de parágrafos
+    $NI .= '| ';
+
+    # nem alguns caracteres especiais ou composições freqüentes
+    $NI .= '|\$|R\$|US\$';
+
+    # nem porcentagens
+    $NI .= '|\d*\%';
+}
+
+#
+# Conversão do formato editável para o dicionário base.
+#
+sub converte_editavel
+{
+    # para preprocessamento dos paradigmas nominais
+    my($p,$l,$r,$t,%dt,$i,%pn);
+
+    # outros
+    my(%L,$CS,$C,$CG,$A,$P,$cl);
+
+## para a filtragem do 2.5
+#my(%l25);
+#open(F,'E25');
+#while (<F>) {
+#    chomp;
+#    s/\/.*$//;
+#    $l25{$_} = 1;
+#}
+#close(F);
+
+    # obtém índices e terminações dos paradigmas
+    foreach $l (split(/\n/,$PNR)) {
+        ($i,$t) = /^(\d*) [^:]*:([^ ]*)/
+    }
+
+    # extrai dos paradigmas nominais os índices e as desinências dos lemas
+    foreach $p (split/\n/,$PNR) {
+
+        # lema e raiz
+        ($i,$l,$r,$t) = ($p =~ /^(\d+) ([^ ]*) ([^:]*):(.*)/);
+
+        # índice
+        $pn{$t} = $i;
+
+        # desinência do lema para esse tipo
+        $dt{$t} = substr($l,length($r));
+    }
+
+    # conversão
+    open(F,$_[0]);
+    while (<F>) {
+
+        # extração do comentário
+        chomp;
+        if (/.#/) {
+            ($C) = /#(.*)/;
+            s/ *#.*$//;
+        }
+        else {
+            $C = '';
+        }
+
+        # classificação gramatical ou semântica
+        if (/^# [^ ]/) {
+
+            # extrai as classes gramatical e semântica do grupo
+            ($CG) = /\[([^\]]*)\]/;
+            ($CS) = /^# (.*?) *$/;
+
+            # anotação do grupo
+            if ($CS =~ /não classificadas/) {
+                $CS = '';
+            }
+
+            # acrescenta a classe apenas se ainda não existir
+            if ($CS ne '') {
+                my($i);
+
+                for ($i=0; ($SEMANT[$i] eq $CS) && ($i<=$#SEMANT); ++$i) {}
+                if ($i > $#SEMANT) {
+                    push(@SEMANT,$CS);
+                }
+            }
+
+            # print "classe do grupo = $CG ($CS)\n";
+
+            # anotação do grupo
+            if ($CS eq '') {
+                $A = '';
+            }
+            else {
+                $A = "|S=$#SEMANT 1";
+                if ($CS eq 'não possui forma feminina') {
+                    $A .= "|NF 1";
+                }
+                elsif ($CS eq 'não possui forma masculina') {
+                    $A .= "|NM 1";
+                }
+            }
+        }
+
+        # comentário
+        elsif ((/^#/) || (/^ *$/)) {
+        }
+
+        # entrada
+        else {
+
+            $r = $t = $l = $cl = '';
+            s/^ *//;
+            s/ *$//;
+
+            # análise do comentário
+            if ($C ne '') {
+
+                $C =~ s/^ *//;
+                $C =~ s/ *$//;
+
+                # derivação
+                if ($C =~ />/) {
+                    #print "produção\n";
+                }
+                elsif (exists($FA{$C})) {
+                    #print "classe declarada: $C\n";
+                    $cl = $C;
+                }
+                else {
+                    #fatal("não entendi comentário: $C");
+                }
+            }
+
+            # construa o lema
+            if ($_ =~ /:/) {
+                ($r,$t) = /^([^:]*):(.*)/;
+                $l = $r . $dt{$t};
+            }
+            else {
+                $l = $_;
+            }
+
+## filtragem do 2.5
+#if (!exists($l25{$l})) {
+#    print "$l não ocorre no 2.5\n";
+#}
+
+            # adicione o paradigma
+            if ($_ =~ /:/) {
+                if (!exists($pn{$t})) {
+                    &fatal("não resolvi $_");
+                }
+                $P = "|par=$pn{$t} 1";
+            }
+            else {
+                $P = '';
+            }
+
+            # tome a classe do grupo se necessário
+            if ($cl eq '') {
+                $cl = $CG;
+            }
+
+            if (exists($L{$l})) {
+
+                # repetição simples e não classificada: descarte
+                if (($CS eq '') && ($t eq $L{$l})) {
+                    #print "lema $l repetido ($t)\n";
+                }
+
+                # nova acepção: acrescente
+                else {
+                    my($j,$o);
+
+                    # reporte se a flexão for diferente
+                    # print "oops! lema $l: ($t != $L{$l})\n";
+
+                    ($j,$o) = ($L{$l} =~ /^(\d+),(.*)$/);
+                    push(@VERBETE,"$l $cl " . (++$j) . " 1$A$P");
+                    $L{$l} = "$j,$o";
+                }
+            }
+
+            # primeira ocorrência
+            else {
+                $L{$l} = "1,$t";
+                push(@VERBETE,"$l $cl 1 1$A$P");
+            }
+        }
+    }
+    close(F);
+
+    # gera o dicionário base
+    &salva_base();
+}
+
+#
+# Classifica e flexiona uma lista de palavras baseando-se
+# apenas nas terminações.
+#
+sub classifica {
+    my($sf,$sm,$sa,$adj,$adv,$desc,$subst,%T,$r,%ttm,$mc,%lx);
+
+    $sf = $sm = $adj = $adv = $desc = $subst = 0;
+
+    #
+    # Copia a tabela de terminações para um hash
+    #
+    {
+        my($l,$t,$s);
+
+        $mc = 0;
+        foreach $l (split(/\n/,$TTM)) {
+            ($t,$s) = split(/ +/,$l,2);
+            $ttm{$t} = $s;
+            if (length($t) > $mc) {
+                $mc = length($t);
+            }
+        }
+    }
+
+    #
+    #
+    #
+    while (<STDIN>) {
+        my($i);
+
+        chomp;
+
+        #
+        $i = length($_);
+        if ($i > $mc) {
+            $i = $mc;
+        }
+        for ( ; ($i > 0) && (!exists($ttm{substr($_,-$i)})); --$i) {}
+
+        # substantivos próprios
+        if (/^[A-ZÁÉÍÓÚÀÈÌÒÙÃÕÑÇÄËÏÖÜÂÊÎÔÛ]/) {
+            $lx{'1'} .= ",$_";
+        }
+
+        # palavras resolvidas
+        elsif ($i > 0) {
+            $lx{substr($_,-$i)} .= ",$_";
+        }
+
+        # palavras não resolvidas
+        else {
+            my($t);
+
+            #print "$_\n";
+            ++$desc;
+            $t = substr($_,-3);
+            ++($T{$t});
+        }
+    }
+
+    {
+        my($i,$j);
+
+        $ttm{'1'} = ". substantivo próprio ou siglas [s.]";
+
+        foreach $i (keys %lx) {
+            my($s,$d);
+
+            ($s,$d) = split(/ +/,$ttm{$i},2);
+
+            print "#\n";
+            print "# $d\n";
+            print "#\n";
+
+            foreach $j (split(/,/,$lx{$i})) {
+                if ($j eq '') {
+                    next;
+                }
+                if ($s ne '.') {
+                    $j =~ s/$i$/$s/e;
+                }
+                print "$j\n";
+            }
+
+            print "\n";
+        }
+    }
+
+    {
+        my($t);
+
+        foreach $t (keys %T) {
+            if ($T{$t} > 20) {
+                print "$t: $T{$t}\n";
+            }
+        }
+    }
+}
+
+
+#
+# O PROGRAMA COMEÇA AQUI
+#
+
+#
+# defaults.
+#
+$PATH_B = 'br.base';
+$PATH_F = 'br.aff';
+$PATH_I = 'br.ispell';
+$FILTRO = 1;
+$OP = '';
+$TOTAL = $ERROS = $DUV = 0;
+
+{
+    my(@m,$i,$c);
+
+    # tabela usada por mk_ci
+    @m = split(//,'áéíóúàèìòùãõñçäëïöüâêîôûabcdefghijklmnopqrstuvwxyz');
+    $i = 0;
+    foreach $c (split(//,'ÁÉÍÓÚÀÈÌÒÙÃÕÑÇÄËÏÖÜÂÊÎÔÛABCDEFGHIJKLMNOPQRSTUVWXYZ')) {
+        $OTC{$c} = "$c$m[$i]";
+        $OTC{$m[$i]} = "$c$m[$i]";
+        ++$i;
+    }
+}
+
+#
+# Argumentos da linha de comandos.
+#
+while (($OP eq '') && ($#ARGV >= 0)) {
+
+    # operação: agregar
+    if ($ARGV[0] eq '-a') {
+        $OP = $ARGV[0];
+    }
+
+    # dicionário base
+    elsif ($ARGV[0] eq '-b') {
+        shift(@ARGV);
+        $PATH_B = $ARGV[0];
+    }
+
+    # arquivo de afixos
+    elsif ($ARGV[0] eq '-f') {
+        shift(@ARGV);
+        $PATH_F = $ARGV[0];
+    }
+
+    # operação: derivação
+    elsif ($ARGV[0] eq '-d') {
+        $OP = $ARGV[0];
+    }
+
+    # operação: agregar conteúdo em formato editável
+    elsif ($ARGV[0] eq '-E') {
+        $OP = $ARGV[0];
+    }
+
+    # operação: expandir
+    elsif ($ARGV[0] eq '-e') {
+        $OP = $ARGV[0];
+    }
+
+    # operação: classificar e flexionar com base apenas na terminação
+    elsif ($ARGV[0] eq '-F') {
+        $OP = $ARGV[0];
+    }
+
+    # operação: expansões impróprias
+    elsif ($ARGV[0] eq '-I') {
+        $OP = $ARGV[0];
+    }
+
+    # caminho do dicionário ispell
+    elsif ($ARGV[0] eq '-i') {
+        shift(@ARGV);
+        $PATH_I = $ARGV[0];
+    }
+
+    # operação: listar lemas com flags ispell
+    elsif ($ARGV[0] eq '-l') {
+        $OP = $ARGV[0];
+    }
+
+    # operação: calcular lexias complexas
+    elsif ($ARGV[0] eq '-L') {
+        $OP = $ARGV[0];
+    }
+
+    # modo não filtrado
+    elsif ($ARGV[0] eq '-n') {
+        $FILTRO = 0;
+    }
+
+    # origem
+    elsif ($ARGV[0] eq '-o') {
+        shift @ARGV;
+        $UID = $ARGV[0];
+    }
+
+    # operação: comparação fonética
+    elsif ($ARGV[0] eq '-p') {
+        $OP = $ARGV[0];
+    }
+
+    # operação: calcular possíveis raízes
+    elsif ($ARGV[0] eq '-r') {
+        $OP = $ARGV[0];
+    }
+
+    # operação: separação silábica
+    elsif ($ARGV[0] eq '-s') {
+        $OP = $ARGV[0];
+    }
+
+    # operação: construção do silabário
+    elsif ($ARGV[0] eq '-S') {
+        $OP = $ARGV[0];
+    }
+
+    # tentar ignorar diferenças entres as variantes do Português
+    elsif ($ARGV[0] eq '-u') {
+        $UNIF = 1;
+    }
+
+    # tentar ignorar vícios ou particularidades de pronúncia
+    elsif ($ARGV[0] eq '-U') {
+        $SB = 1;
+    }
+
+    # modo verboso
+    elsif ($ARGV[0] eq '-v') {
+        $VERB = 1;
+    }
+
+    # expansão de formas segundo o paradigma indicado
+    elsif ($ARGV[0] eq '-x') {
+        $OP = $ARGV[0];
+    }
+
+    shift(@ARGV);
+}
+
+#
+# Cria a tabela de encontros vocálicos
+#
+&construa_ev();
+
+#
+# Aprende as abreviações e as flexões de cada classe
+#
+&registre_abrevs();
+&registre_formas();
+
+#
+# Leitura do dicionário base.
+#
+if (($OP eq '-a') || ($OP eq '-l') || ($OP eq '-x')) {
+    &carrega_base(1);
+}
+elsif ($OP eq '-E') {
+    &carrega_base(0);
+}
+
+#
+# Leitura do dicionário ispell.
+#
+if ($OP =~ /^-[reIMS]$/) {
+    my(@a,$r,$f);
+
+    if (!open(F,$PATH_I)) {
+        fatal("não consegui abrir $PATH_I");
+    }
+    while (<F>) {
+        chomp;
+        ($r,$f) = /^([^\/]*)(.*)$/;
+        if ($r ne '') {
+            $IDX_I{$r} .= $f;
+        }
+    }
+    close(F);
+}
+
+#
+# Leitura do arquivo de afixos.
+#
+if ($OP =~ /^-[reIMElx]$/) {
+
+    # extrai as regras de afixos
+    &aprenda_afixos();
+}
+
+#
+# Operações
+#
+# operação: agregar
+if ($OP eq '-a') {
+
+    my($i);
+
+    if ($ARGV[0] eq '-') {
+        while (<STDIN>) {
+            chomp;
+            &edit_dict($_);
+        }
+    }
+    else {
+        for ($i=0; $i<=$#ARGV; ++$i) {
+            &edit_dict($ARGV[$i]);
+        }
+    }
+    &salva_base();
+}
+
+#
+# operação: derivação
+#
+elsif ($OP eq '-d') {
+    my($i);
+
+    &init_tp();
+    &registre_prods();
+
+    if ($ARGV[0] eq '-') {
+        while (<STDIN>) {
+            chomp;
+            if ($_ =~ /^[^,]*,[^,]*$/) {
+                &gere($_);
+            }
+        }
+    }
+
+    else {
+        for ($i=0; $i<=$#ARGV; ++$i) {
+            if ($ARGV[$i] =~ /^[^,]*,[^,]*$/) {
+                &gere($ARGV[$i]);
+            }
+        }
+    }
+}
+
+#
+# operação: agregar conteúdo em formato editável.
+#
+elsif ($OP eq '-E') {
+
+    # se não conseguiu ler o dicionário base, gere os paradigmas
+    if ($DB_LIDO == 0) {
+        &gera_afixos_nominais();
+    }
+
+    # agora converta agregando o arquivo indicado
+    &converte_editavel($ARGV[0]);
+}
+
+#
+# operação: expandir
+#
+elsif (($OP eq '-e') || ($OP eq '-I')) {
+    my($i);
+
+    # lematização e expansão das formas indicadas na entrada padrão
+    if ($ARGV[0] eq '-') {
+        while (<STDIN>) {
+            chomp;
+            &lematize_expanda($_);
+        }
+    }
+
+    # expansão completa do vocabulário ispell
+    elsif ($#ARGV < 0) {
+        my($p,$lf,$f);
+
+        foreach $p (keys %IDX_I) {
+            if (($f=$IDX_I{$p}) eq '') {
+                $f = '.';
+            }
+            $lf = expandir($p,$f);
+            print $lf;
+        }
+    }
+
+    # lematização e expansão das formas indicadas na linha de comandos
+    else {
+        for ($i=0; $i<=$#ARGV; ++$i) {
+            &lematize_expanda($ARGV[$i]);
+        }
+    }
+}
+
+#
+# operação: classificar e flexionar com base apenas na terminação
+#
+elsif ($OP eq '-F') {
+    my($i);
+
+    &classifica();
+}
+
+#
+# operação: listar lemas com flags ispell
+#
+elsif ($OP eq '-l') {
+    my($i,$j,$pr,$pa);
+
+    for ($i=0; $i<=$#VERBETE; ++$i) {
+        if (&analise_verbete($VERBETE[$i]) == 0) {
+            &fatal("formato inválido de verbete $_[0]\n");
+        }
+
+        # Escolhe um paradigma. Por ora isso significa tomar o último
+        # declarado.
+        for ($pr='', $pa=0, $j=0; $j<=$#ATR; ++$j) {
+            if ($ATR[$j] =~ /^par=/) {
+                ($pr) = ($ATR[$j] =~ /^par=(\d*)/);
+            }
+            elsif ($ATR[$j] eq 'PA') {
+                $pa = 1;
+            }
+        }
+
+        # a listagem e marcação dos verbos continua sendo feita
+        # diretamente pelo conjugue, formato "ci". Uma das razões
+        # para isso é a ausência no dicionário base das flags
+        # de afixos verbais por paradigma. É por isso que esse
+        # bloco está vazio, mas algum dia isso mudará.
+        if ($CL =~ /^v/) {
+        }
+
+        # gera formas e flags para não-verbos com paradigma explicitado.
+        elsif ($pr ne '') {
+            my($cl,$j,$k,$p,$f);
+
+            # Atualmente o formato editável não suporta flexão de
+            # muitas formas compostas. As únicas suportadas são
+            # as com hífen, mas neste caso a flexão é aplicada apenas
+            # na última forma.
+            if ($LEMA =~ /[ ']/) {
+                &fatal('flexão de formas compostas não é suportada');
+            }
+            while ($LEMA =~ /-/) {
+                my($a,$b);
+
+                ($a,$b) = ($LEMA =~ /^([^-]*)-(.*)$/);
+                print "$a\n";
+                $LEMA = $b;
+            }
+
+            foreach $j (split(/;/,$PN[$pr])) {
+                ($cl,$k) = ($j =~ /^([^ ]*) +(.*)$/);
+                $p = $LEMA;
+                if (length($k) > 2) {
+                    $f = substr($k,0,-2);
+                    $p = &expande_linear($LEMA,$f);
+                    if ($p eq '0') {
+                        &fatal("nenhuma forma para $LEMA$f");
+                    }
+                    elsif ($p eq '2') {
+                        &fatal("múltiplas formas para $LEMA$f");
+                    }
+                    $k = substr($k,-2);
+                }
+                print "$p$k\n";
+            }
+        }
+
+        # gera formas para não-verbos sem paradigma explicitado.
+        else {
+            my($f);
+
+            foreach $f (split(/[ '-]/,$LEMA)) {
+                print "$f\n";
+            }
+        }
+    }
+}
+
+#
+# operação: listar lemas com flags ispell
+#
+elsif ($OP eq '-L') {
+    $N = 5;
+    &init_nl();
+    &segmenta($ARGV[0]);
+    &busca_lcs();
+}
+
+#
+# operação: comparação fonética
+#
+elsif ($OP eq '-p') {
+    my($a,$b,$fa,$fb,@a,@b,$i,$m,$r);
+
+    # separa as sílabas
+    $a = $ARGV[0];
+    $fa = &vf($a);
+    if ($#ARGV > 0) {
+        $b = $ARGV[1];
+        $fb = &vf($b);
+        if ($VERB) {
+            print "fonética de $a: $fa\n";
+            print "fonética de $b: $fb\n";
+        }
+        $r = ($fa cmp $fb);
+        print "$r\n";
+    }
+    else {
+        print "fonética de $a: $fa\n";
+    }
+    exit(0);
+}
+
+#
+# operação: calcular possíveis raízes
+#
+elsif ($OP eq '-r') {
+    my($i,$r,@l);
+
+    if ($ARGV[0] eq '-') {
+        while (<STDIN>) {
+            chomp;
+            @l = &lematize($_);
+            foreach $r (@l) {
+                print "$r\n";
+            }
+        }
+    }
+    else {
+        for ($i=0; $i<=$#ARGV; ++$i) {
+            @l = &lematize($ARGV[$i]);
+            foreach $r (@l) {
+                print "$r\n";
+            }
+        }
+    }
+}
+
+#
+# operação: separação silábica
+#
+elsif ($OP eq '-s') {
+    my($r,$i);
+
+    if ($ARGV[0] eq '-') {
+        while (<STDIN>) {
+            chomp;
+            s/#.*$//;
+            tr/ \t//d;
+            if (/./) {
+                $r = &silabas(split(/,/));
+                print "$r\n";
+            }
+        }
+    }
+    else {
+        for ($i=0; $i<=$#ARGV; ++$i) {
+            $r = &silabas(split(/,/,$ARGV[0]));
+            print "$r\n";
+        }
+    }
+    if ($VERB) {
+        print "$TOTAL testes ao todo\n";
+        print '' . ($TOTAL-$ERROS-$DUV) . " acertos, $ERROS erros, $DUV dúvidas\n";
+    }
+}
+
+#
+# operação: construção do silabário
+#
+elsif ($OP eq '-S') {
+    my($p,$r,$s);
+
+    foreach $p (keys %IDX_I) {
+
+        # ignore (algumas) palavras estrangeiras
+        if ($p =~ /[kwy]/) {
+            next;
+        }
+
+        $r = &silabas($p);
+        foreach $s (split(/-/,$r)) {
+            $_ = $SB{$s};
+            $_ = tr/ /,/;
+            if ($_ < 2) {
+                $SB{$s} .= ($SB{$s} eq '') ? $r : " $r";
+            }
+        }
+    }
+
+    foreach $p (keys %SB) {
+        print "$p $SB{$p}\n";
+    }
+}
+
+#
+# operação: expansão de formas segundo o paradigma indicado
+#
+elsif ($OP eq '-x') {
+    my($r,$i,%ipn,$d,$p,@a,@b);
+
+    my($o,$f);
+
+    for ($i=1; $i<=$#EPN; ++$i) {
+        $ipn{$EPN[$i]} = $i;
+    }
+
+    if ($ARGV[0] eq '-') {
+        while (<STDIN>) {
+            chomp;
+            s/#.*$//;
+            s/^ +//;
+            s/ +$//;
+            tr/\t/ /d;
+            s/  +/ /g;
+
+            if (/./) {
+                ($d,$p) = split(/ /,$_);
+                if (!defined($PN[$ipn{$p}])) {
+                    print "oops! não conheço paradigma $p\n";
+                }
+                foreach $r (split(/;/,$PN[$ipn{$p}])) {
+                    #($o,$f) = split(/ /,$r);
+                    #print(&expandir($d,$f));
+
+                    @a = split(/ /,$r);
+                    @b = split(/,/,$d);
+                    if ($#a == 1) {
+                        print(&expandir($d,$a[1]));
+                    }
+                    elsif ($a[1]-1 <= $#b) {
+                        print(&expandir($b[$a[1]-1],$a[2]));
+                    }
+                    else {
+                        fatal("não existe forma $a[1]");
+                    }
+
+                }
+            }
+        }
+    }
+    else {
+        if (!defined($PN[$ipn{$ARGV[1]}])) {
+            print "oops! não conheço paradigma $p\n";
+        }
+        foreach $r (split(/;/,$PN[$ipn{$ARGV[1]}])) {
+            @a = split(/ /,$r);
+            @b = split(/,/,$ARGV[0]);
+            if ($#a == 1) {
+                print(&expandir($ARGV[0],$a[1]));
+            }
+            elsif ($a[1]-1 <= $#b) {
+                print(&expandir($b[$a[1]-1],$a[2]));
+            }
+            else {
+                fatal("não existe forma $a[1]");
+            }
+        }
+    }
+}
+

@@ -1,0 +1,226 @@
+.\" Copyright 1995-9 Ricardo Ueda Karpischek (ueda@ime.usp.br)
+.\"
+.TH CONJUGUE 1.1 "18 de outubro de 1999" "br.ispell" "br.ispell"
+.SH NOME
+conjugue \- conjugador de verbos da língua portuguesa
+.SH SINOPSE
+.B conjugue [-v VARIÁVEL=valor] ...
+.br
+.SH DESCRIÇÃO
+.B conjugue
+lê um banco de verbos contendo paradigmas e listas de
+verbos que se conjugam segundo cada paradigma, e permite conjugar
+verbos através de um interface iterativa ou na forma de um
+comando simples dado no prompt do shell.
+
+Pode-se passar parâmetros para o
+.B conjugue
+através da opção
+.B -v
+do
+.B awk,
+que permite predefinir o valor de uma variável. As variáveis
+no caso são:
+
+.TP
+.B BANCO
+Path completo do banco de verbos (default /usr/local/lib/verbos).
+
+.TP
+.B NOVOS
+Path completo do arquivo onde o
+.B conjugue
+apenda verbos novos, que não constam ainda do banco
+(default $HOME/.conjugue-novos).
+
+.TP
+.B FORMATO
+Formato da saída. A saída é a conjugação (as formas) do(s)
+verbos que se deseja conjugar. As possibilidades para a saída são:
+.B c
+(curto, usado para gerar listas de palavras),
+.B n
+(normal, o formato original, um pouco críptico),
+.B ci
+(usado para listar os verbos para o br.ispell),
+.B aa
+(usado para gerar as regras de afixos verbais do br.ispell),
+.B l
+(longo, um pouco menos críptico do que o "n") e
+.B ll
+(muito longo, semelhante ao que as gramáticas costumam usar).
+.B b
+(usado para gerar a lista dos paradigmas ou dos verbos
+nos formatos do dicionário base). O
+formato default é
+.B l.
+
+.TP
+.B CMD
+Execute esse comando. Nesse caso, o
+.B conjugue
+executa o comando dado e abandona. De outra forma, o
+.B conjugue
+apresentará um prompt para a entrada de comandos iterativos. Os
+comandos disponíveis são
+.B ?
+para mostrar um sumário dos comandos,
+.B a
+para listar as abreviações,
+.B n
+para exibir algumas notas,
+.B f
+para abandonar, e
+.B T
+para conjugar todos os verbos do banco. Para conjugar um verbo
+determinado, basta entrar com esse verbo no prompt de comandos
+(ou indicá-lo na linha de comandos como valor inicial de
+.B CMD
+).
+
+.SH EXEMPLOS
+
+1. Conjugar o verbo "amar" com a saída no formato muito longo:
+
+$ conjugue -v FORMATO=ll -v CMD=amar
+
+2. Entrar no modo iterativo e exibe as conjugações no formato
+muito longo:
+
+$ conjugue -v FORMATO=ll
+
+3. Conjugar todos os verbos do banco explicitado, gerando uma
+lista de radicais para o br.ispell:
+
+$ conjugue -v BANCO=verbos -v FORMATO=ci -v CMD=T
+
+.SH BANCO DE VERBOS
+
+.br
+O Banco de verbos contém a conjugação dos paradigmas e, para cada um
+deles, uma lista de verbos que se conjugam segundo aquele paradigma.
+Cada paradigma pode conter também informações para a heurística que
+deduz o paradigma a ser utilizado nos casos em que o banco não contém
+essa informação. Segue uma descrição do formato do banco de verbos:
+
+.br
+S == [a-záéíóúàèìòùçãõü]+
+.br
+V == Sr
+.br
+L == [S(,S)*]
+.br
+F == L(:L)*
+.br
+T == FN|IP|PI|II|EI|MI|TI|FI|PS|IS|FS|IA|IN
+.br
+P == paradigma:V[:S]<lf>(T:F<lf>)*<lf>
+.br
+A == abundante:V:L<lf>
+.br
+B == [[P(V\n)*]|[A]]*
+
+.br
+O banco pode conter, em qualquer posição, linhas começadas com
+o caracter "#" ou linhas em branco, que são desprezadas.
+
+.br
+Em termos semânticos, os símbolos da gramática representam:
+
+.br
+S String não nula
+.br
+V Verbo
+.br
+L Lista de strings
+.br
+F Flexão num tempo ou modo
+.br
+T Nome de tempo ou modo
+.br
+P Paradigma
+.br
+A Particípio abundante
+.br
+B Banco
+
+O termo <lf> é uma quebra de linha. A lista de verbos que segue
+um dado paradigma são os verbos que se conjugam conforme aquele
+paradigma. A string eventualmente dada como último componente na
+linha P é a terminação que heuristicamente será utilizada para
+decidir quando usar aquele paradigma (no caso de verbos que não
+especificam um paradigma).
+
+.SH REGRAS DE TRANSFORMAÇÃO DE RADICAIS
+
+.br
+Alguns verbos irregulares têm o radical alterado ao longo da
+conjugação. Por esse motivo, é necessário que o programa deduza a
+partir do paradigma uma regra de alteração do radical, que será
+aplicada em todos os verbos que seguem aquele paradigma. Por
+exemplo, no verbo "seguir" a vogal "e" do radical é trocada por
+"i" em alguns casos ("eu sigo").
+
+.br
+O modo com que isso vem sendo tratado é meramente conhecer de
+antemão os tipos de alterações de radicais, e codificá-las. Até o
+momento foi possível codificar todas as regras de modificação de
+radicais através de variações de uma única regra, a saber, a
+substituição da última vogal do radical ou da última vogal do
+radical após o descarte da sua última letra.
+
+.br
+O função
+.B normaliza
+do script contém uma tabela de transformação de vogais que cobre
+todas as transformações conhecidas até o momento. Na
+eventualidade do conjugue exibir a mensagem "vogal não
+normalizada" ao ser iniciado, será necessário incluir uma nova
+regra de substituição de vogais na função
+.B normaliza,
+e a sua inversa na função
+.B desnormaliza.
+O script documenta como adicionar novas regras.
+
+.SH FORMAS ENCLÍTICAS
+
+.br
+A ênclise em alguns casos provoca alteração ortográfica do verbo, como
+por exemplo "amá-la" (amar+ela). A partir da versão 1.1 o conjugue
+possui suporte específico para gerar algumas dessas formas, mas isso
+só está ativo quando o formato de saída é "ci". Para maiores detalhes,
+cheque por favor o fonte do conjugue.
+
+.SH ARQUIVOS
+
+.br
+/usr/local/lib/verbos - banco de verbos.
+
+.br
+$HOME/.conjugue-novos - arquivo para apendar verbos que não
+constam do banco.
+
+.SH BUGS
+
+.br
+O arquivo no qual vão sendo apendados verbos novos não é lido pelo
+conjugue na inicialização.
+
+.br
+A ocorrência de um mesmo verbo mais de uma vez no banco provoca
+malfuncionamento do programa.
+
+.br
+Essa man page contém caracteres acentuados, que em alguns sistemas
+talvez não sejam exibidos. Para visualizá-la corretamente, utilize
+um fonte ISO e, se o
+.B groff
+estiver disponível, tente o comando
+
+.br
+$ groff -Tlatin1 -man conjugue.1|more
+
+.SH VER TAMBÉM
+.BR ispell (1),
+.SH AUTOR
+Ricardo Ueda Karpischek <ueda@ime.usp.br>

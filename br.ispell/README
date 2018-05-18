@@ -1,0 +1,142 @@
+Para as instruções em português, veja por favor a segunda e a
+terceira seções.
+
+---
+
+Ispell dictionary for brazilian portuguese
+------------------------------------------
+
+This the br.ispell dictionary for brazilian portuguese. It's
+freely available under the terms of the GNU GPL. You can freely
+redistribute and/or use it for spell checking through ispell
+(http://fmg-www.cs.ucla.edu/ficus-members/geoff/ispell.html). The
+main page (in portuguese) for this dictionary is
+http://www.ime.usp.br/~ueda/br.ispell.
+
+An ispell dictionary for portuguese (as spoken in Portugal) can
+be found at http://www.di.uminho.pt/~jj/pln/pln.html.
+
+To build the hash, just type
+
+    $ make br.hash
+
+The file br.hash just built must be put on the directory where
+ispell looks for hash files. Then, you'll be able to specify "br"
+to ispell(1) or other softwares (emacs, LyX, etc) that rely on
+it. To make all that using the makefile, first edit the
+paths of the directories and then type
+
+    $ make install
+
+(note that this action will install conjugue too)
+
+To generate the list of all words, type
+
+    $ make formas
+
+---
+
+Dicionário br.ispell para o português falado no Brasil
+------------------------------------------------------
+
+Este é o dicionário br.ispell de português falado no Brasil para
+o ispell (talvez fosse melhor dizer "vocabulário", no entanto o
+jargão do ispell é "dictionary"). Está livremente disponível
+dentro dos termos da licença GNU GPL.
+
+Maiores detalhes sobre o ispell podem ser obtidos na página
+http://fmg-www.cs.ucla.edu/ficus-members/geoff/ispell.html. Um
+outro dicionário (do português falado em Portugal) pode ser
+obtido em http://www.di.uminho.pt/~jj/pln/pln.html.
+
+Para gerar o hash na sua plataforma, basta executar
+
+     make br.hash
+
+Em seguida será necessário mover o arquivo br.hash para o
+diretório onde o ispell procura os hashes. Feito isso, "br"
+poderá ser especificado para o ispell ou qualquer outo software
+(emacs, LyX, etc) baseado nele. Isso pode ser feito via makefile,
+nesse caso edite os paths indicados nele e execute
+
+    $ make install
+
+(esta ação instalará o conjugue também)
+
+Para gerar a lista de todas as palavras, execute
+
+    $ make palavras
+
+---
+
+Conjugador de verbos da língua portuguesa
+-----------------------------------------
+
+O conjugue é um script awk capaz de conjugar verbos da língua
+portuguesa, a partir de um banco de paradigmas. Tanto o script
+quanto o banco estão disponíveis sob os termos da licença GNU
+GPL.
+
+Para usá-lo, coloque o script em algum diretório de binários (por
+exemplo /usr/local/bin), a man page em algum diretório de man
+pages (por exemplo /usr/local/man/man1) e o banco de verbos em
+/usr/local/lib. Alternativamente, instale via makefile configurando
+antes os diretórios indicados nele e em seguida dando o comando
+
+    $ make install-conjugue
+
+Agora execute na linha de comandos:
+
+    $ conjugue
+
+Ou alguma outra variante desse comando conforme os exemplos dados
+na man page. A man page contém caracteres acentuados, para visualizá-los
+corretamente é necessário possuir um fonte ISO e instruir o nroff a
+formatar usando caracteres ISO, por exemplo
+
+    $ groff -Tlatin1 -man conjugue.1 | more
+    $ groff -Tlatin1 -man conjugue.1 | less -r
+
+Outra maneira é alterar a configuração default do man. Isso normalmente
+envolve editar um arquivo como o /etc/man.config.
+
+---
+
+Lista de pessoas que colaboraram para o br.ispell e/ou o
+conjugue. Fiz o possível para incluir os nomes de todos. Se
+alguém tiver sido esquecido, peço a gentileza de ser avisado.
+
+ Alair Pereira do Lago
+ Alexandre Oliva
+ Arnaldo Mandel
+ Carlos Alberto de Pian
+ Carlos Juiti Watanabe
+ Cesar Scarpini Rabak
+ Fernando Rosendo
+ Daniel Martins
+ Edson Sardella
+ Imre Simon
+ Jacques Exelrud
+ José João Almeida
+ José Artur Quilici Gonzalez
+ Jorge L. deLyra
+ João Carlos Mendes Luis
+ Ken Beesley
+ Paulo Eduardo Neves
+ Pedro Vazquez
+ Rafael Laboissiere
+ Rogerio Brito
+ Roberto Hirata Jr
+ Marcelo A. Trindade
+ Marco Cabral
+ Marcos Tadeu
+ Peter Lyman
+ Tomasz Kowaltowski
+ Wanderlei Antonio Cavassin
+ Yoshiharu Kohayakawa
+
+(veja o arquivo ANUNCIO para adições recentes)
+
+Obrigado a todos,
+
+Ricardo Ueda Karpischek

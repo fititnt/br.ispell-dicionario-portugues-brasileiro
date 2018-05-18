@@ -1,0 +1,210 @@
+#
+# Arquivo affix do dicionário português para o ispell
+# por Ricardo Ueda Karpischek (ueda@ime.usp.br)
+#
+nroffchars	().\\*
+texchars	()\[]{}<\>\\$*.%
+
+defstringtype "nroff" "nroff" ".mm" ".ms" ".me" ".man"
+
+boundarychars '
+
+wordchars [a-záéíóúàèìòùãõçüâêô] [A-ZÁÉÍÓÚÀÈÌÒÙÃÕÇÜÂÊÔ]
+
+altstringtype "tex" "tex" ".tex" ".bib"
+
+suffixes
+
+#
+# Flexão de gênero
+#
+flag A:
+
+   Ê S       >       -ÊS,ESA            # freguês  > freguesa
+   E S       >       -ES,AS             # eles     > elas
+   O S       >       -OS,AS             # duzentos > duzentas
+   [^Ã] O    >       -O,A               # menino   > menina
+   E         >       -E,A               # mestre   > mestra
+   R         >       A                  # criador  > criadora
+   Ã O       >       -ÃO,ONA            # valentão > valentona
+   L         >       A                  # espanhol > espanhola
+   U I Z     >       -IZ,ÍZA            # juiz     > juíza
+   D E U     >       -EU,IA             # judeu    > judia
+   [PRT] E U >       -EU,ÉIA            # europeu  > européia
+   Ó I       >       -ÓI,OÍNA           # herói    > heroína
+   Ô         >       -Ô,Ó               # avô      > avó
+   E I       >       -EI,AINHA          # rei      > rainha
+   A U       >       -AU,Á              # mau      > má
+   M         >       -M,A               # bom      > boa
+
+#
+# Flexão de número
+#
+flag B:
+
+   A        >       S                  # casa       > casas
+   [^Ã] O   >       S                  # roubo      > roubos
+   E        >       S                  # mestre     > mestres
+   R        >       ES                 # criador    > criadores
+   Ã O      >       -ÃO,ÕES            # pião       > piões
+   U        >       S                  # tatu       > tatus
+   É        >       S                  # pontapé    > pontapés
+   I        >       S                  # colibri    > colibris
+   Á        >       S                  # gambá      > gambás
+   Ó        >       S                  # nó         > nós
+   Ê        >       S                  # turnê      > turnês
+   Ú        >       S                  # baú        > baús
+   Ô        >       S                  # robô       > robôs
+   Ã        >       S                  # clã        > clãs
+   N        >       S                  # nêutron    > nêutrons
+   [^IO] L  >       -L,IS              # audível    > audíveis
+   I L      >       -L,S               # fuzil      > fuzis
+   O L      >       -OL,ÓIS            # espanhol   > espanhóis
+   U I Z    >       -IZ,ÍZES           # juiz       > juízes
+   [^U] I Z >       ES                 # verniz     > vernizes
+   [^I] Z   >       ES                 # falaz      > falazes
+   [^ÁÊÉ] S >       ES                 # país       > países
+   Ê S      >       -ÊS,ESES           # francês    > franceses
+   É S      >       -ÉS,ESES           # convés     > conveses
+   Á S      >       -ÁS,ASES           # lilás      > lilases
+   M        >       -M,NS              # colagem    > colagens
+
+#
+# Diminutivo
+#
+flag C:
+
+   O      >       -O,INHO            # bobo   > bobinho
+   E      >       -E,INHO            # quente > quentinho
+   É      >       -É,EZINHO          # café   > cafezinho
+   A      >       -A,INHA            # boba   > bobinha
+   Z      >       INHO               # nariz  > narizinho
+
+#
+# Aumentativo
+#
+flag D:
+
+   O      >       -O,ÃO              # bobo    > bobão
+   A      >       -A,ONA             # boba    > bobona
+   O R    >       ZÃO                # calor   > calorzão
+   E      >       -E,ÃO              # valente > valentão
+
+#
+# Superlativo absoluto sintético
+#
+flag E:
+
+   O      >       -O,ÍSSIMO          # belo        > belíssimo
+   E      >       -E,ÍSSIMO          # inteligente > inteligentíssimo
+   A      >       -A,ÍSSIMA          # bela        > belíssima
+   Z      >       -Z,CÍSSIMO         # incapaz     > incapacíssimo
+
+#
+# Diminutivo em inho com adição de -z-
+#
+flag F:
+   .      >       ZINHO              # calor  > calorzinho
+
+#
+# Aumentativos alternativos
+#
+flag G:
+
+   O      >       -O,AÇO             # livro  > livraço
+   Z      >       -Z,GÃO             # rapaz  > rapagão
+   A      >       -A,ÃO              # abelha > abelhão
+
+#
+# Flexões de gênero alternativas
+#
+flag H:
+
+   T E    >       -E,ISA             # sacerdote > sacerdotisa
+   U E    >       SA                 # duque     > duquesa
+   Ã O    >       -ÃO,Ã              # ancião    > anciã
+   O S    >       -OS,A              # Carlos    > Carla
+   M      >       A                  # um        > uma
+   O R    >       -OR,RIZ            # ator      > atriz
+   U      >       A                  # nu        > nua
+
+#
+# Flexões de número alternativas
+#
+flag I:
+
+   É U    >       -U,IS              # chapéu  > chapéis
+   I L    >       -IL,EIS            # míssil  > mísseis
+   I Z    >       -IZ,ÍZES           # raiz    > raízes
+   Ã O    >       -O,ES              # cão     > cães
+   E L    >       -EL,ÉIS            # coronel > coronéis
+
+#
+# Flexões de gênero alternativas
+#
+flag J:
+
+   E      >       SSA                # conde     > condessa
+   Ã O    >       -ÃO,A              # ladrão    > ladra
+
+#
+# Flexões de número alternativas
+#
+flag K:
+
+   Ã O    >       S                  # mão    > mãos
+
+#
+# Regras particulares
+#
+flag L:
+
+   B A R Ã O      >       -ÃO,ONESA    # barão   > baronesa
+   S U L T Ã O    >       -ÃO,ANA      # sultão  > sultana
+   L E Ã O        >       -ÃO,OA       # leão    > leoa
+   C O S T E L A  >       -A,ETA       # costela > costeleta
+
+#
+# Sufixos verbais
+# ---------------
+#
+
+#
+# OBSERVAÇÃO IMPORTANTE
+# ---------------------
+#
+# Não temos ainda um tratamento definitivo para as formas enclíticas.
+# Por ora estamos gerando-as para todos os verbos. Isso cria formas
+# inválidas devido à (falta de) transitividade, como por exemplo
+# passeá (-la). As formas sendo geradas são:
+#
+# amá (-la)      (tempos compostos)
+# amamo (-nos)   (primeira do plural, presente do indicativo)
+# amemo (-nos)   (primeira do plural, presente do subjuntivo)
+# amarmo (-nos)  (primeira do plural, futuro do subjuntivo)
+# amaremo (-la)  (primeira do plural, futuro do presente do indicativo)
+# amamo (-nos)   (primeira do plural, perfeito do indicativo)
+#
+# Os mesmos casos se repetem para as quatro conjugações, exceto o
+# primeiro caso (tempos compostos) para a terceira conjugação, pois
+# a última vogal fica sem acento (parti-la).
+#
+# Não estamos cobrindo todos os casos de ênclise, não obstante
+# os casos não cobertos são raros no uso. Note que o imperativo
+# afirmativo, onde os casos de ênclise são frequentes, está
+# automaticamente coberto, porque nas segundas pessoas o
+# imperativo afirmativo remove o "s" final (portanto a forma
+# enclítica coincide com a conjugação normal), e a primeira
+# do plural está coberta porque vem do presente do subjuntivo.
+#
+# A inclusão de formas enclíticas no br.ispell provavelmente gera
+# muitos falsos positivos. O ideal seria exigir que essas formas
+# estivessem sempre seguidas do hífen.
+#
+
+#
+# O restante do arquivo é gerado de forma automática pelo
+# conjugador de verbos da seguinte forma:
+#
+# conjugue -v BANCO=verbos -v FORMATO=aa -v CMD=T
+#

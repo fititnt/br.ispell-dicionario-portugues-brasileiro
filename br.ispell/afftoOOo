@@ -1,0 +1,90 @@
+#!/usr/bin/perl
+
+#
+# Conversor de afixos ispell -> myspell, por Ricardo Ueda.
+#
+
+#
+# Cabeçalho.
+#
+# Obs. a linha "TRY" usa as freqüências aeosrindtmuclpvghqbfzjx
+# indicadas no livro "Teoria Lingüística" p. 47 (M. T. C. Biderman,
+# Martins Fontes 2001), temperadas com outras contagens. Incluí
+# também caracteres acentuados que não ocorrem no Português porque
+# o myspell não sugere palavras que usem caracteres não listados
+# na linha TRY, e talvez alguém que não conheça isso necessite
+# adicionar ao dicionário nomes ou palavras estrangeiras.
+#
+print "SET ISO8859-1\n";
+print "TRY aeosrindtmuclpvgíhqbfzçãájxéêóôüúâAEBõDMCSRPLGVFTNIJHUkwyÉZOÁQKàÂYWÓÍXÜÛûÙùÚÕÖöÔÒòÑñÏïÎîÌìËëÊÈèÇÃÄäÀ\n";
+
+# prepara
+open(F,"br.aff");
+$mode = '?';
+$in = 0;
+
+# conversão
+while (<F>) {
+
+    # prepara
+    chomp;
+    #tr/\t/ /;
+    $l = $_;
+
+    # início da seção de prefixos
+    if (/^prefixes/) {
+        $mode = 'PFX';
+    }
+
+    # início da seção de sufixos
+    elsif (/^suffixes/) {
+        $mode = 'SFX';
+    }
+
+    # início de bloco de regras
+    elsif (/^flag/) {
+
+        if (($in) && ($nr > 0)) {
+            print "$mode $f $c $nr\n";
+            print $R;
+        }
+
+        if (($c,$f) = ($l =~ /^flag (\*|)([A-Za-z]):.*$/)) {
+            $c = ($c eq '*') ? 'Y' : 'N';
+            $in = 1;
+            $nr = 0;
+            $R = '';
+        }
+        else {
+            print "falha no parse de $l\n";
+            exit 1;
+        }
+    }
+
+    # comentário ou linha em branco
+    elsif (/^ *(#.*|)$/) {
+        #print "desprezei $l\n";
+    }
+
+    # regra
+    elsif ($in) {
+        $l =~ s/#.*$//;
+        $l =~ s/[ -]//g;
+        $l =~ tr/A-ZÁÉÍÓÚÀÈÌÒÙÃÕÑÇÄËÏÖÜÂÊÎÔÛ/a-záéíóúàèìòùãõñçäëïöüâêîôû/;
+        ($cond,$a) = ($l =~ /^(.*)>(.*)$/);
+        if ($a =~ /,/) {
+            ($rem,$adc) = ($a =~ /^(.*),(.*)$/);
+        }
+        else {
+            $rem = '0';
+            $adc = $a;
+        }
+        $R .= sprintf("$mode $f $rem $adc $cond\n");
+        ++$nr;
+    }
+
+    # outros
+    else {
+    }
+}
+

@@ -1,0 +1,1971 @@
+#!/usr/bin/gawk -f
+#
+
+#
+#  Copyright (C) 1995-2002 Ricardo Ueda Karpischek and others
+#
+#  This is free software; you can redistribute it and/or modify
+#  it under the terms of the version 2 of the GNU General Public
+#  License as published by the Free Software Foundation.
+#
+#  This software is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this software; if not, write to the Free Software
+#  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+#  USA.
+#
+
+#
+# Notas importantes
+#
+BEGIN {
+notas = "\
+1. Conjugue 1.1 presta-se basicamente para gerar um dicionário\n\
+para ser usado em verificadores ortográficos. Por isso, os tempos\n\
+compostos não são considerados.\n\
+\n\
+2. O programa chama de irregulares alguns verbos que os\n\
+gramáticos consideram regulares, e vice-versa. Na medida do\n\
+possível tentaremos sanar essas diferenças (ou ao menos\n\
+precisá-las) nas próximas versões.\n\
+\n\
+3. O programa conjugará qualquer verbo não pronominal da língua\n\
+portuguesa, mesmo os que não constam do banco. O paradigma,\n\
+quando não é conhecido, é deduzido heuristicamente, mas esse\n\
+procedimento é sujeito a erros.\n\
+\n\
+4. Todas as vezes em que você tentar conjugar um verbo que não\n\
+consta no banco, ele será concatenado ao arquivo\n\
+$HOME/.conjugue-novos (o programa *não* acrescenta o conteúdo\n\
+desse arquivo ao banco quando o banco é carregado logo após o\n\
+disparo do programa)."
+}
+
+#
+# Notas sobre a implementação
+# ---------------------------
+#
+# Os verbos conhecidos pelo programa são as entradas do
+# vetor associativo V. O valor da entrada pode ser a string
+# nula, uma lista de tempos e/ou modos com a forma de
+# flexionar o verbo nesses tempos e/ou modos ou um outro
+# verbo (separador ":"). Exemplos:
+#
+#     V["compilar"] = ""
+#     V["abrir"]    = "FN:abrir:abrindo:aberto"
+#     V["amar"]     = "cantar"
+#
+# No primeiro caso, o verbo é flexionado segundo algum dos paradigmas
+# (a ser deduzido pela terminação do verbo). No segundo caso o verbo
+# é considerado paradigma nos tempos explicitados (os outros seguirão
+# o paradigma regular). No terceiro o verbo será conjugado
+# segundo o paradigma indicado.
+#
+# A partir da versão 3.0, as formas alternativas de particípio
+# passaram a ser armazenadas no vetor PA:
+#
+#     PA["emergir"]  = "emerso"
+#     PA["frigir"]   = "frito"
+#
+# faltam:
+# -------
+#
+# conjugação de verbos pronominais
+# suporte para formas abundantes além dos particípios
+# leitura da lista de verbos novos após o carregamento do banco
+#
+
+BEGIN {
+
+#
+# Lista de tempos e modos
+#
+abrevia = "\
+FN - formas nominais: infinitivo, gerúndio e particípio\n\
+IP - infinitivo pessoal\n\
+\n\
+PI - presente do indicativo\n\
+II - imperfeito do indicativo\n\
+EI - perfeito do indicativo\n\
+MI - mais-que-perfeito do indicativo\n\
+TI - futuro do pretérito do indicativo\n\
+FI - futuro do presente do indicativo\n\
+\n\
+PS - presente do subjuntivo\n\
+IS - imperfeito do subjuntivo\n\
+FS - futuro do subjuntivo\n\
+\n\
+IA - imperativo afirmativo\n\
+IN - imperativo negativo"
+
+#
+# Flags verbais para o ispell
+#
+# Toda vez que um novo paradigma for incluído no banco de verbos
+# será necessário adicionar aqui uma flag para ele. As flags
+# reservadas para verbos são as de a a z, inclusive. Note que
+# o ispell é compilado por default com suporte para 58 flags
+# (A-Z, a-z e os caracteres entre Z e A). A flag z é reservada
+# para as formas alternativas de particípio.
+#
+
+#
+# a. paradigmas regulares
+#
+FV["FN"] = "a"
+FV["IP"] = "b"
+FV["PI"] = "c"
+FV["II"] = "d"
+FV["EI"] = "e"
+FV["MI"] = "f"
+FV["TI"] = "g"
+FV["FI"] = "h"
+FV["PS"] = "i"
+FV["IS"] = "j"
+FV["FS"] = "k"
+FV["IA"] = "l"
+FV["IN"] = "m"
+
+#
+# b. primeira conjugação, fatoração por três letras
+#
+FV["comunicar"]  = "n"
+FV["abraçar"]    = "n"
+FV["saudar"]     = "n"
+FV["passear"]    = "n"
+FV["resfolegar"] = "n"
+FV["apoiar"]     = "n"
+FV["magoar"]     = "n"
+FV["estar"]      = "n"
+FV["aguar"]      = "n"
+
+FV["moscar"]     = "o"
+FV["dar"]        = "o"
+FV["chegar"]     = "o"
+FV["odiar"]      = "o"
+FV["apaziguar"]  = "o"
+
+FV["cegar"]      = "p"
+FV["mobiliar"]   = "p"
+FV["adequar"]    = "p"
+
+#
+# paradigmas não caracterizáveis por três letras: crer
+#
+FV["arruinar"]   = "t"
+FV["enviuvar"]   = "u"
+
+#
+# c. segunda conjugação, fatoração por três letras
+#
+FV["caber"]    = "n"
+FV["conhecer"] = "n"
+FV["perder"]   = "n"
+FV["proteger"] = "n"
+FV["valer"]    = "n"
+FV["doer"]     = "n"
+FV["requerer"] = "n"
+FV["ser"]      = "n"
+FV["ter"]      = "n"
+FV["erguer"]   = "n"
+FV["haver"]    = "n"
+FV["jazer"]    = "n"
+
+FV["saber"]    = "o"
+FV["poder"]    = "o"
+FV["querer"]   = "o"
+FV["conter"]   = "o"
+FV["ver"]      = "o"
+FV["dizer"]    = "o"
+FV["moer"]     = "o"
+
+FV["feder"]    = "p"
+FV["prover"]   = "p"
+FV["fazer"]    = "p"
+
+FV["precaver"] = "q"
+FV["trazer"]   = "q"
+
+FV["reaver"]   = "r"
+
+FV["escrever"] = "s"
+
+#
+# paradigmas não caracterizáveis por três letras: crer
+#
+FV["crer"]     = "t"
+
+#
+# terceira conjugação, fatoração por três letras
+#
+FV["cair"]      = "n"
+FV["proibir"]   = "n"
+FV["ressarcir"] = "n"
+FV["pedir"]     = "n"
+FV["afligir"]   = "n"
+FV["engulir"]   = "n"
+FV["reunir"]    = "n"
+FV["abrir"]     = "n"
+FV["sortir"]    = "n"
+FV["seguir"]    = "n"
+FV["argüir"]    = "n"
+FV["ouvir"]     = "n"
+FV["traduzir"]  = "n"
+
+FV["fugir"]     = "o"
+FV["cobrir"]    = "o"
+FV["surtir"]    = "o"
+FV["construir"] = "o"
+FV["vir"]       = "o"
+
+FV["convergir"] = "p"
+FV["extinguir"] = "p"
+
+FV["ir"]        = "q"
+
+FV["rir"]       = "r"
+FV["atribuir"]  = "r"
+
+FV["ruir"]      = "s"
+FV["advir"]     = "s"
+
+
+#
+# paradigmas não caracterizáveis por três letras: abolir,
+# adir, dormir, ferir, progredir e subir.
+#
+FV["progredir"] = "t"
+FV["dormir"]    = "u"
+FV["subir"]     = "v"
+FV["ferir"]     = "w"
+FV["abolir"]    = "x"
+FV["adir"]      = "y"
+
+# e. quarta conjugação
+
+#
+# Relaciona os paradigmas não caracterizáveis por três letras.
+#
+RP["crer"]      = 1
+RP["progredir"] = 1
+RP["dormir"]    = 1
+RP["subir"]     = 1
+RP["ferir"]     = 1
+RP["abolir"]    = 1
+RP["adir"]      = 1
+RP["arruinar"]  = 1
+RP["enviuvar"]  = 1
+
+}
+
+#
+# Verifica se o radical é prefixo de cada conjugação da lista. Retorna
+# "R" em caso afirmativo, ou "" caso contrário (isso é uma reminiscência
+# histórica).
+#
+function checa_radical(verbo,r,c,n,t,i,mpc,l) {
+
+    # determina o maior prefixo do radical comum a todas as formas
+    n = split(c,t,":")
+    mpc = r
+    for (i=1; i <= n; ++i)
+        if (t[i] != "")
+            while (match(t[i],mpc) != 1) mpc = substr(mpc,1,length(mpc)-1)
+    if (match(mpc,r) > 0)
+        return("R")
+    else
+        return("")
+}
+
+#
+# Essa função recebe o radical e a conjugação como primeiro
+# e segundo parâmetros, e classifica o tipo de alteração
+# do radical atribuindo-lhe um código numérico.
+#
+# Por exemplo: se a última vogal de um radical for "o" (como
+# em "dorm+ir"), então o código zero associado a esse radical
+# indica que essa vogal deve ser trocada por "u" (como em
+# "durm+a").
+#
+# Um mesmo código pode ser utilizado para referir várias
+# transformações diferentes, desde que a vogal inicial e a
+# vogal resultante ocorram como tais uma única vez sob esse
+# código (em outras palavras, cada código deve definir uma
+# bijeção).
+#
+# Para incluir uma nova substituição de vogais sob um código já
+# existente, basta adicionar o teste contendo as duas vogais,
+# usando como exemplo as transformações já relacionadas.
+#
+# Se não for possível incluir a substituição sob um código já
+# existente, será necessário criar um novo código. Atualmente
+# só se podem usar como códigos os dígitos decimais (0-9),
+# sendo que os dígitos de 0 a 6 (inclusive) estão em uso.
+#
+# Em qualquer caso, é necessário incluir a substituição
+# inversa na rotina "desnormaliza". Se isso não for feito,
+# a mensagem "vogal v inválida para regra n e radical r"
+# será exibida.
+#
+# Note que a acentuação gráfica precisa ser considerada como
+# substituição de vogal (proibir > proíbe).
+#
+function normaliza(r,c,t,i,j,k,l,v,w,m,n,x,x1,y,y1,u,pi,ri,pk,rk,pm,rm) {
+
+    # quebra a conjugação nas várias pessoas
+    n = split(c,t,":")
+
+    # tamanho e última letra do radical
+    l = length(r);
+    u = substr(r,l,1);
+
+    # obtém em i a posição da última vogal do radical
+    for (i=l; (i >= 1) && (!(substr(r,i,1) in VOG)); --i);
+
+    # idem, em k, desconsiderando a última letra do radical
+    for (k=l-1; (k >= 1) && (!(substr(r,k,1) in VOG)); --k);
+
+    # idem, em m, desconsiderando as últimas duas letras do radical
+    for (m=l-2; (m >= 1) && (!(substr(r,m,1) in VOG)); --m);
+
+    # se existirem essas vogais armazene-as em v e x
+    if (i >= 1) {
+        v = substr(r,i,1)
+    }
+    if (k >= 1) {
+        x = substr(r,k,1)
+    }
+    if (m >= 1) {
+        x1 = substr(r,m,1)
+    }
+
+    #
+    # .. para cada pessoa tente classificar a alteração do radical
+    # dentro dos casos conhecidos. A conjugação é então alterada
+    # da forma
+    #     "radical alterado" "sufixo"
+    # para a forma
+    #     "radical" "sufixo" "código"
+    #
+    c = ""
+    for (j=1; j<=n; ++j) {
+    
+        w = substr(t[j],i,1)
+        y = substr(t[j],k,1)
+        y1 = substr(t[j],m,1)
+
+        # prefixos e restos relativos à i-ésima e k-ésima letras
+        pi = substr(t[j],1,i-1)
+        ri = substr(t[j],i+1,l-i)
+        pk = substr(t[j],1,k-1)
+        rk = substr(t[j],k+1,l-k-1)
+        pm = substr(t[j],1,m-1)
+        rm = substr(t[j],m+1,l-m-1)
+
+        # regra 0: substitua a última vogal do radical
+        #     de a para e, ou
+        #     de o para u (dormir > durma), ou
+        #     de u para o (cuspir > cospe), ou
+        #     de e para i (ferir  > fira),
+        #     de i para í (proibir  > proíbe),
+        # e verifique se se obtém o radical
+        if ((i > 0) &&
+        (((w == "e") && (pi "a" ri == r)) ||
+        ((w == "o") && (pi "u" ri == r)) ||
+        ((w == "í") && (pi "i" ri == r)) ||
+        ((w == "u") && (pi "o" ri == r)) ||
+        ((w == "i") && (pi "e" ri == r)))) {
+            t[j] = pi v substr(t[j],i+1) "0"
+            #print "regra 0 aplicada para transformar " r " em " t[j]
+        }
+
+        # regra 1: substitua a última vogal do radical
+        #     de a para i (fazer > fizer), ou
+        #     de o para ô (voar > vôo), ou
+        #     de u para ú (saudar > saúdo),
+        # e verifique se se obtém o radical
+        else if ((i > 0) &&
+        (((w == "i") && (pi "a" ri == r)) ||
+        ((w == "ú") && (pi "u" ri == r)) ||
+        ((w == "ô") && (pi "o" ri == r))))
+            t[j] = pi v substr(t[j],i+1) "1"
+    
+        # regra 2: desconsidere a última letra do radical e substitua a
+        # última vogal
+        #     de a para o (trazer > trouxe), ou
+        #     de i para í (mobiliar > mobílio)
+        #     de e para i (convergir > convirja)
+        #     de o para u (moscar > musque)
+        # e verifique se se obtém o radical (a menos da última letra).
+        else if ((k > 0) &&
+        (((y == "i") && (pk "e" rk u == r)) ||
+        ((y == "í") && (pk "i" rk u == r)) ||
+        ((y == "u") && (pk "o" rk u == r)) ||
+        ((y == "o") && (pk "a" rk u == r))))
+            t[j] = r substr(t[j],l) "2"
+
+        # regra 3: desconsidere a última letra do radical e substitua a
+        # última vogal
+        #     de a para á (haver > há)
+        #     de o para ó (apoiar > apóio)
+        # e verifique se se obtém o radical (a menos da última letra).
+        else if ((k > 0) &&
+        (((y == "á") && (pk "a" rk u == r)) ||
+        ((y == "ó") && (pk "o" rk u == r))))
+            t[j] = r substr(t[j],l) "3"
+
+        # regra 4: desconsidere a última letra do radical e substitua a
+        # última vogal
+        #     de a para ã (haver > hão)
+        # e verifique se se obtém o radical (a menos da última letra).
+        else if ((k > 0) &&
+        ((y == "ã") && (pk "a" rk u == r)))
+            t[j] = r substr(t[j],l) "4"
+
+        # regra 5: desconsidere a última letra do radical e substitua a
+        # última vogal
+        #     de a para e (saber > sei)
+        # e verifique se se obtém o radical (a menos da última letra).
+        else if ((k > 0) &&
+        ((y == "e") && (pk "a" rk u == r)))
+            t[j] = r substr(t[j],l) "5"
+
+        # regra 6: desconsidere a última letra do radical e verifique
+        # se se obtém o radical, desconsiderada a última letra (ouvir > ouça).
+        else if ((substr(t[j],1,l-1) == substr(r,1,l-1)) && (substr(t[j],1,l) != substr(r,1,l)))
+            t[j] = r substr(t[j],l) "6"
+
+        # regra 7: desconsidere as duas últimas letras do radical e
+        # substitua a ultima vogal
+        #     de o para ó  (resfolegar > resfólego)
+        else if ((m > 0) &&
+        ((y1 == "ó") && (pm "o" rm u == r)))
+            t[j] = r substr(t[j],l) "7"
+
+        # todas as regras conhecidas falharam
+        else if ((t[j] != "") && (substr(t[j],1,l) != substr(r,1,l)))
+            print "vogal não normalizada: w=" w ", y=" y " (" r ":" t[j] ")"
+    
+        # concatena em c a nova forma da conjugação da pessoa corrente
+        c = c ((j>1) ? ":" : "") t[j]
+    }
+
+    return(c)
+}
+
+#
+# desnormaliza um radical, isto é, aplica a regra inversa segundo
+# as definições da rotina de normalização. Recebe em r o radical e
+# em f o código da transformação. Veja a documentação da função
+# "normaliza" para detalhes.
+#
+function desnormaliza(r,f,i,pen_ind,v,pen_vog) {
+
+    # casos onde se trabalha com o radical inteiro
+    if (f < 2) {
+
+        # obtém em i a posição da última vogal do radical, e a vogal
+        for (i=length(r); (i >= 1) && (!(substr(r,i,1) in VOG)); --i);
+        v = substr(r,i,1)
+        # substitui a última vogal conforme a regra
+        if (f == "0") {
+            if (v == "a")
+                r = substr(r,1,i-1) "e" substr(r,i+1)
+            else if (v == "o")
+                r = substr(r,1,i-1) "u" substr(r,i+1)
+            else if (v == "u")
+                r = substr(r,1,i-1) "o" substr(r,i+1)
+            else if (v == "i")
+                r = substr(r,1,i-1) "í" substr(r,i+1)
+            else if (v == "e")
+                r = substr(r,1,i-1) "i" substr(r,i+1)
+            else
+                print "vogal " v " inválida para regra " f " e radical " r
+        }
+        else if (f == 1) {
+            if (v == "a")
+                r = substr(r,1,i-1) "i" substr(r,i+1)
+            else if (v == "o")
+                r = substr(r,1,i-1) "ô" substr(r,i+1)
+            else if (v == "u")
+                r = substr(r,1,i-1) "ú" substr(r,i+1)
+            else
+                print "vogal " v " inválida para regra " f " e radical " r
+        }
+    }
+
+    # casos onde se trabalha com o radical a menos da última letra
+    else {
+
+        #print "radical submetido: " r
+
+        # remove a última letra do radical
+        r = substr(r,1,length(r)-1);
+
+        #print "radical sem a última letra: " r
+
+        # obtém em última vogal do radical reduzido e sua posição
+        for (i=length(r); (i >= 1) && (!(substr(r,i,1) in VOG)); --i);
+        v = substr(r,i,1)
+
+        # obtém a penúltima vogal do radical reduzido e sua posição
+	for (pen_ind=i-1; (pen_ind >= 1) && (!(substr(r,pen_ind,1) in VOG)); --pen_ind);
+        pen_vog = substr(r,pen_ind,1)
+
+        # substitui a última vogal conforme a regra
+        if (f == "2") {
+            if (v == "a")
+                r = substr(r,1,i-1) "o" substr(r,i+1)
+            else if (v == "e")
+                r = substr(r,1,i-1) "i" substr(r,i+1)
+            else if (v == "i")
+                r = substr(r,1,i-1) "í" substr(r,i+1)
+            else if (v == "o")
+                r = substr(r,1,i-1) "u" substr(r,i+1)
+            else
+                print "vogal " v " inválida para regra " f " e radical " r
+        }
+        if (f == "3") {
+            if (v == "a")
+                r = substr(r,1,i-1) "á" substr(r,i+1)
+            else if (v == "o")
+                r = substr(r,1,i-1) "ó" substr(r,i+1)
+            else
+                print "vogal " v " inválida para regra " f " e radical " r
+        }
+        if (f == "4") {
+            if (v == "a")
+                r = substr(r,1,i-1) "ã" substr(r,i+1)
+            else
+                print "vogal " v " inválida para regra " f " e radical " r
+        }
+        if (f == "5") {
+            if (v == "a")
+                r = substr(r,1,i-1) "e" substr(r,i+1)
+            else
+                print "vogal " v " inválida para regra " f " e radical " r
+        }
+        if (f == "7") {
+            if (pen_vog == "o")
+                r = substr(r,1,pen_ind-1) "ó" substr(r,pen_ind+1)
+            else
+                print "vogal " v " inválida para regra " f " e radical " r
+        }
+    }
+    return(r)
+}
+
+#
+# Fatora a conjugação pelo radical, indicando para cada pessoa
+# a terminação e a correção do radical, se houver.
+#
+function fatora_prefixos(verbo,lista,t,mpc,i,R,D,l,lf,j,n,c) {
+
+    # transforma o mpc numa função do radical
+    R = substr(verbo,1,(l=length(verbo))-2)
+    D = substr(R,1,l-3)
+    mpc = checa_radical(verbo,R,lista)
+
+    if (mpc == "") {
+        lista = normaliza(R,lista)
+        mpc = checa_radical(verbo,R,lista)
+    }
+    if (mpc == "") {
+        j = 1
+        print "cuidado: mpc do verbo " verbo " (" lista ") não resolvido"
+    }
+
+    # constrói a lista fatorada
+    n = split(lista,t,":")
+    j = length(verbo)-1;
+    for (i=1; i<=n; ++i) {
+        if (i > 1) lf = lf ":"
+        c = substr(t[i],length(t[i]));
+        lf = lf ((t[i] == "") ? "-" : substr(t[i],j))
+    }
+    return(lf)
+}
+
+#
+# A partir da conjugação do verbo, cria um modelo que permite
+# aplicar a mesma conjugação em outros verbos.
+#
+function cria_modelo(verbo,t,i,n) {
+
+    n = split(V[verbo],t,"\n")
+    V[verbo] = ""
+    for (i=1; i<=n; ++i) {
+        t[i] = substr(t[i],1,3) fatora_prefixos(verbo,substr(t[i],4))
+        if (i > 1) V[verbo] = V[verbo] "\n"
+        V[verbo] = V[verbo] t[i]
+    }
+}
+
+#
+# Carrega o banco indicado criando entradas do vetor V. O
+# formato do banco está descrito na man page do conjugue.
+#
+function carrega_banco(banco,a,b,n,l,vt,p,k) {
+
+    # contadores de paradigmas, verbos e linhas
+    n = m = l = 0
+
+    # estado da leitura
+    estado = "nulo"
+
+    # loop de leitura de linhas
+    while ((getline <banco) > 0) {
+
+        # contabiliza a linha recém-lida
+        ++l
+
+        # despreza linhas vazias e comentários
+        if ((NF > 0) && ((a=substr($0,1,1)) != "#")) {
+
+            # continua lendo paradigma ou inicia leitura da lista
+            if (estado == "lendo_paradigma") {
+
+                # uma parte da conjugação do paradigma atual
+                if (substr($0,1,2) in TM) {
+                    if (V[paradigma] == "")
+                        V[paradigma] = $0
+                    else
+                        V[paradigma] = V[paradigma] "\n" $0
+                }
+
+                # concluída leitura do paradigma
+                else {
+                    cria_modelo(paradigma)
+                    estado = "lendo_lista"
+                }
+            }
+
+            # continua lendo lista ou volta ao estado nulo
+            if (estado == "lendo_lista") {
+
+                # verbo da lista do paradigma atual
+                if (match($0,":") == 0)
+                    if (substr($1,length($1),1) == "r") {
+                        if ($1 in V) {
+                            V[$1] = paradigma ":" V[$1]
+                            print "ocorrência múltipla de " $1 > "/dev/stderr"
+                        }
+                        else
+                            V[$1] = paradigma
+                        ++m
+                    }
+                    else {
+                        print "conjugue: erro na linha " l " do banco"
+                        print $0 " não é verbo"
+                    }
+
+                # concluída leitura da lista de verbos
+                else
+                    estado = "nulo"
+            }
+
+            # procura paradigma ou verbo abundante
+            if (estado == "nulo") {
+
+                # isola paradigma
+                if ((a=substr($0,1,9)) == "paradigma") {
+                    if ((k=split($0,p,":")) > 1)
+                        LP[p[2]] = p[3]
+                    paradigma = (k > 1) ? p[2] : ""
+                    if (paradigma in V) {
+                        print "conjugue: erro fatal na linha " l " do banco"
+                        print "paradigma " paradigma "já ocorreu antes."
+                        exit
+                    }
+                    ++n
+                    estado = "lendo_paradigma"
+
+                    # o primeiro paradigma de cada conjugação é o regular
+                    vt = substr(paradigma,length(paradigma)-1,1)
+                    if ((paradigma != "") && (pr[vt] == "")) {
+                        pr[vt] = paradigma
+                    }
+                }
+
+                # isola verbo abundante
+                else if (a == "abundante") {
+
+                    if (split($0,p,":") != 3) {
+                        print "conjugue: erro fatal na linha " l " do banco"
+                        print "sintaxe incorreta para forma abundante"
+                        exit 1
+	            }
+
+                    if ((p[2] in PA) && (PA[p[2]] != p[3])) {
+                        print "conjugue: erro fatal na linha " l " do banco"
+                        print "não estou preparado para verbos com duas"
+                        print "formas alternativas do particípio."
+                        exit 1
+                    }
+                    else
+                        PA[p[2]] = p[3]
+
+                }
+
+                # erro no banco
+                else {
+                    print "conjugue: erro fatal na linha " l " do banco"
+                    print "esperado \"paradigma\" ou \"abundante\""
+                    exit 1
+                }
+            }
+        }
+    }
+
+    if ((FORMATO !~ /^(c|aa|b)/) && (CMD == "")) {
+        print "lidos " n " paradigmas"
+        print "lidos " m+n " verbos"
+    }
+}
+
+#
+# Expande uma string abreviada. Isso significa basicamente
+# prefixar cada componente de c (as componentes são
+# separadas por ":") pelo radical r, alterado segundo a
+# regra indicada.
+#
+function expande(c,r,v,i,j,l,p,q,z,f) {
+
+#    Acho que aqui nao está fazendo nada:
+#    p = substr(p,2,i-2)
+
+    i = split(substr(c,1),z,":")
+    c = ""
+    for (j=1; j <= i; ++j) {
+        f = substr(z[j],length(z[j]))
+        if (("0" <= f) && (f <= "9"))
+            c = c ":" desnormaliza(r,f) p substr(z[j],1,length(z[j])-1)
+        else
+            c = c ":" ((z[j] == "-") ? "" : r p z[j])
+    }
+    c = substr(c,2,length(c)-1)
+    return c
+}
+
+#
+# cria uma regra de sufixo
+#
+function regra(lema,forma,a,R,k)
+{
+    # antecedente
+    gsub(""," ",a)
+    R = "   " a "> "
+
+    k = length(forma) - 1
+    while ((k>0) && (substr(lema,1,k) != substr(forma,1,k))) --k
+    if (k < length(lema))
+        R = R "-" substr(lema,k+1) ","
+    R = R substr(forma,k+1)
+    
+    # embeleze
+    R = toupper(R);
+    for (k=length(R); (k < 33); ++k)
+        R = R " "
+    
+    return(R)
+}
+
+#
+# Conjuga o verbo dado em todos os modos e tempos
+#
+function conjugue_todos(verbo,r,vt,tmr,tme,i,j,p,q,a,k,l,t,reg,C,cs,pp,R,TE,RA,LT,O,nr) {
+
+    # Obtenção da raiz e da vogal temática
+    l = length(verbo)
+    if (l < 2)
+        return
+    r = substr(verbo,1,l-2)
+    vt = substr(verbo,l-1,1)
+
+    # Obtenção do paradigma regular
+    cpr = V[pr[vt]]
+
+    # O verbo conta com uma lista específica de tempos/modos
+    if (substr(V[verbo],1,2) in TM) {
+        esp = V[verbo]
+	if (pr[vt] == verbo) {
+            if (FORMATO !~ /^(c|a|b)/)
+                print "# paradigma regular"
+            reg = 1;
+        }
+        else {
+            if (FORMATO !~ /^(c|a|b)/)
+                print "# paradigma irregular"
+            reg = 0
+        }
+        p = verbo
+    }
+
+    # O verbo é conjugado segundo algum dos paradigmas
+    else {
+
+        p = V[verbo];
+
+        # Temos que deduzir um paradigma
+        if (p == "") {
+            t = 0
+            for (i in LP) {
+                k = length(LP[i])
+                if ((LP[i] != "") && (k > t) && (substr(verbo,l-k+1) == LP[i])) {
+                    p = i
+                    t = k
+                }
+            }
+            if (pr[vt] == p) {
+                if (FORMATO !~ /^(c|a|b)/)
+                    print "# paradigma deduzido: " p " (regular)"
+                reg = 1
+            }
+            else {
+                if (FORMATO !~ /^(c|a|b)/)
+                    print "# paradigma deduzido: " p " (irregular)"
+                reg = 0
+            }
+        }
+
+        # o paradigma foi explicitado
+        else {
+            if (pr[vt] == p) {
+                if (FORMATO !~ /^(c|a|b)/)
+                    print "# paradigma: " p " (regular)"
+                reg = 1
+            }
+            else {
+                if (FORMATO !~ /^(c|a|b)/)
+                    print "# paradigma: " p " (irregular)"
+                reg = 0
+            }
+        }
+
+        # obtém regras específicas do paradigma
+        esp = V[p]
+    }
+
+    # Correção do regular pelo específico
+    n = split(cpr,tmr,"\n")
+    m = split(esp,tme,"\n")
+    if ((m < n) && (FORMATO !~ /^(c|a|b)/) && (CMD == ""))
+        print "# regular em " n-m " casos"
+    for (i=1; i<=n; ++i)
+        tmr[substr(tmr[i],1,2)] = tmr[i]
+    for (i=1; i<=m; ++i) {
+
+        #
+        # o banco de verbos pode incluir regras de conjugação
+        # desnecessárias (isto é, que seriam dedutíveis a partir
+        # do paradigma regular). A fim delas não gerarem regras de
+        # afixos desnecessárias, elas são detetadas e descartadas
+        # aqui.
+        #
+        j = substr(tme[i],1,2)
+        if (tmr[j] == tme[i])
+            delete tme[i]
+
+        #
+        # a regra não é desnecessária: troque o caso regular pelo
+        # explicitado.
+        #
+        else
+            tmr[j] = tme[i]
+    }
+
+    #
+    # Adição das formas alternativas do particípio. Isso fica
+    # inibido no caso de estarmos gerando os afixos para não
+    # contaminar os paradigmas com particularidades. Estas
+    # serão tratadas à parte pela flag z.
+    #
+    # Isso realmente está um pouco confuso porque os particípios
+    # alternativos estão sendo tratados de forma diferenciada
+    # no caso do formato ser "aa" ou "ci".
+    #
+    if (("FN" in tmr) && (FORMATO != "aa") && (FORMATO != "ci") && (verbo in PA))
+        tmr["FN"] = tmr["FN"] "," PA[verbo]
+
+    # formato curto com flags do br.ispell (obsoleto)
+    if (FORMATO=="old_ci") {
+
+        if (reg == 1)
+            print verbo "/R/T/F/N/C"
+
+        else {
+
+            #
+            # Neste ponto o conjugue gera algumas formas
+            # enclíticas. Note que aqui só são tratados verbos
+            # irregulares. De fato, o caso regular é tratado
+            # no br.aff pela flag C. A documentação da flag C
+            # no br.aff contém muitas informações adicionais.
+            #
+
+            #
+            # formas enclíticas dos tempos compostos
+            #
+            #   magoá (-la)
+            #   roê (-lo)
+            #   proibi (-lo) (desnecessário acrescentar)
+            #   supô (-lo)
+            #
+            if (vt == "a")
+                print r "á"
+            else if (vt == "e")
+                print r "ê"
+            else if (vt == "o")
+                print r "ô"
+
+            #
+            # formas enclíticas da primeira do plural, vários tempos
+            #
+
+            # magoamo (-la)
+            C = expande(substr(tmr["PI"],4),r,verbo)
+            n = split(C,pp,":")
+            if (pp[4] != "")
+                print substr(pp[4],0,length(pp[4])-1);
+
+            # magoemo (-la)
+            C = expande(substr(tmr["PS"],4),r,verbo)
+            n = split(C,pp,":")
+            if (pp[4] != "")
+                print substr(pp[4],0,length(pp[4])-1);
+
+            # magoarmo (-la)
+            C = expande(substr(tmr["FS"],4),r,verbo)
+            n = split(C,pp,":")
+            if (pp[4] != "")
+                print substr(pp[4],0,length(pp[4])-1);
+
+            # magoaremo (-la)
+            C = expande(substr(tmr["FI"],4),r,verbo)
+            n = split(C,pp,":")
+            if (pp[4] != "")
+                print substr(pp[4],0,length(pp[4])-1);
+
+            if ((verbo == "passear") || (p == "passear"))
+                print verbo "/R/S/F"
+
+            else if ((verbo == "conhecer") || (p == "conhecer"))
+                print verbo "/R/S/F"
+
+            #
+            # O paradigma ferir congrega verbos com terminações variadas,
+            # o que torna complexa a alteração do radical no ispell.
+            #
+            # Por exemplo, a regra simples
+            #
+            #     I R > -ERIR,IRO    # ferir > firo
+            #
+            # não funciona para
+            #
+            #     COMPELIR > COMPILO
+            #     ADVERTIR > ADVIRTO
+            #     MENTIR   > MINTO
+            #     REPETIR  > REPITO
+            #     VESTIR   > REVISTO
+            #     SERVIR   > SIRVO
+            #     SERZIR   > SIRZO
+            #
+            # Assim, várias outras estão presentes no br.aff (veja a
+            # flag S).
+            #
+            else if ((verbo ~ "ferir") || (p == "ferir"))
+                print verbo "/R/S/F"
+
+            else if ((verbo == "comunicar") || (p == "comunicar"))
+                print verbo "/R/Q/N"
+
+            else if ((verbo == "cegar") || (p == "cegar"))
+                print verbo "/R/A/N"
+
+            else if ((verbo == "abraçar") || (p == "abraçar"))
+                print verbo "/R/B/N"
+
+            else if ((verbo == "magoar") || (p == "magoar"))
+                print verbo "/R/M/F"
+
+            else if ((verbo == "abolir") || (p == "abolir"))
+                print verbo "/R/M/F"
+
+            else {
+                for (i in TM) {
+                    C = expande(substr(tmr[i],4),r,verbo)
+                    gsub(":","\n",C)
+                    print C
+                }
+            }
+        }
+    }
+
+    # formato curto
+    else if (FORMATO=="c") {
+
+        for (i in TM) {
+            C = expande(substr(tmr[i],4),r,verbo)
+            gsub(":","\n",C)
+            print C
+        }
+    }
+
+    # formato normal
+    else if (FORMATO ~ /^n/) {
+
+        for (i in TM) {
+            C = expande(substr(tmr[i],4),r,verbo)
+            print i ":" C
+        }
+    }
+
+    # formato para debugação (exibe a regra de formação)
+    else if (FORMATO ~ /^d/) {
+
+        for (i in TM) {
+            print i ":" substr(tmr[i],4)
+        }
+    }
+
+    # formato longo (default)
+    else if ((FORMATO == "l") || (FORMATO == "")) {
+
+        for (i in TM) {
+            C = expande(substr(tmr[i],4),r,verbo)
+            print TM[i] ":" C
+        }
+    }
+
+    # formato muito longo
+    else if (FORMATO == "ll") {
+
+        # formas nominais
+        print TM["FN"]
+        C = expande(substr(tmr["FN"],4),r,verbo)
+        split(C,cs,":");
+        print "   infinitivo: " cs[1]
+        print "   gerúndio: " cs[2]
+        print "   particípio: " cs[3]
+
+        # presente do indicativo
+        print TM["PI"]
+        C = expande(substr(tmr["PI"],4),r,verbo)
+        split(C,cs,":");
+        for (j=1; j<=6; ++j) {
+            if (cs[j] != "")
+                print "   " P[j] " " cs[j]
+        }
+
+        # imperfeito do indicativo
+        print TM["II"]
+        C = expande(substr(tmr["II"],4),r,verbo)
+        split(C,cs,":");
+        for (j=1; j<=6; ++j) {
+            if (cs[j] != "")
+                print "   " P[j] " " cs[j]
+        }
+
+        # perfeito do indicativo
+        print TM["EI"]
+        C = expande(substr(tmr["EI"],4),r,verbo)
+        split(C,cs,":");
+        for (j=1; j<=6; ++j) {
+            if (cs[j] != "")
+                print "   " P[j] " " cs[j]
+        }
+
+        # mais-que-perfeito do indicativo
+        print TM["MI"]
+        C = expande(substr(tmr["MI"],4),r,verbo)
+        split(C,cs,":");
+        for (j=1; j<=6; ++j) {
+            if (cs[j] != "")
+                print "   " P[j] " " cs[j]
+        }
+
+        # futuro do pretérito do indicativo
+        print TM["TI"]
+        C = expande(substr(tmr["TI"],4),r,verbo)
+        split(C,cs,":");
+        for (j=1; j<=6; ++j) {
+            if (cs[j] != "")
+                print "   " P[j] " " cs[j]
+        }
+
+        # futuro do presente do indicativo
+        print TM["FI"]
+        C = expande(substr(tmr["FI"],4),r,verbo)
+        split(C,cs,":");
+        for (j=1; j<=6; ++j) {
+            if (cs[j] != "")
+                print "   " P[j] " " cs[j]
+        }
+
+        # no presente do subjuntivo adicionamos "que"
+        print TM["PS"]
+        C = expande(substr(tmr["PS"],4),r,verbo)
+        split(C,cs,":");
+        for (j=1; j<=6; ++j) {
+            if (cs[j] != "")
+                print "   que " P[j] " " cs[j]
+        }
+	
+        # no imperfeito do subjuntivo adicionamos "se"
+        print TM["IS"]
+        C = expande(substr(tmr["IS"],4),r,verbo)
+        split(C,cs,":");
+        for (j=1; j<=6; ++j) {
+            if (cs[j] != "")
+                print "   se " P[j] " " cs[j]
+        }
+	
+        # no futuro do subjuntivo adicionamos "quando"
+        print TM["FS"]
+        C = expande(substr(tmr["FS"],4),r,verbo)
+        split(C,cs,":");
+        for (j=1; j<=6; ++j) {
+            if (cs[j] != "")
+                print "   quando " P[j] " " cs[j]
+        }
+	
+        # imperativo afirmativo
+        print TM["IA"]
+        C = expande(substr(tmr["IA"],4),r,verbo)
+        split(C,cs,":");
+        for (j=2; j<=6; ++j) {
+            if (cs[j-1] != "")
+                print "   " cs[j-1] " " P[j]
+        }
+	
+        # imperativo negativo
+        print TM["IN"]
+        C = expande(substr(tmr["IN"],4),r,verbo)
+        split(C,cs,":");
+        for (j=2; j<=6; ++j) {
+            if (cs[j-1] != "")
+                print "   não " cs[j-1] " " P[j]
+        }
+	
+        # no infinitivo pessoal adicionamos "por"
+        print TM["IP"]
+        C = expande(substr(tmr["IP"],4),r,verbo)
+        split(C,cs,":");
+        for (j=1; j<=6; ++j) {
+            if (cs[j] != "")
+                print "   por " cs[j] " " P[j]
+        }
+    }
+
+    # gera lista para o buildhash
+    else if (FORMATO == "ci") {
+
+        #
+        # Alguns paradigmas não são caracterizáveis pelas três últimas
+        # letras. Para eles, temos que reservar uma flag específica.
+        #
+        # Se a execução do conjugue durante a geração do v.ispell
+        # for interrompida neste ponto, é necessário no primeiro
+        # bloco BEGIN do programa alocar uma flag específica para
+        # o paradigma problemático, e inclui-lo no hash RP.
+        #
+        if ((reg == 0) &&
+            (RP[p] == 0) &&
+            (substr(verbo,length(verbo)-2) != substr(p,length(p)-2))) {
+
+            print "erro fatal: verbo "  verbo " segue o paradigma " p > "/dev/stderr"
+            print "mas diferem nas três últimas letras" > "/dev/stderr"
+            exit 1
+        }
+
+        # verbo com forma alternativa de particípio
+        if (verbo in PA)
+            print verbo PF[p] "/z"
+
+        # outros verbos
+        else
+            print verbo PF[p]
+    }
+
+    # gera dicionário base
+    else if (FORMATO == "b") {
+
+        if (FVN[p] == "") {
+            print "paradigma " p " não tem índice" > "/dev/stderr"
+            exit 1
+        }
+
+        # verbo com forma alternativa de particípio
+        if (verbo in PA)
+            print verbo " v 1 1|par=" FVN[p] " 1|PA 1"
+
+        # outros verbos
+        else
+            print verbo " v 1 1|par=" FVN[p] " 1"
+    }
+
+    #
+    # cria as regras de sufixação verbal
+    #
+    else if (FORMATO == "aa") {
+
+        #if ((verbo != pr[vt]) && (FV[verbo] == "")) {
+        #    print verbo " não consta na tabela de paradigmas!"
+        #    exit 1
+        #}
+
+        if (reg == 0) {
+            O = "";
+            PF[verbo] = "/" FV[verbo]
+        }
+        else {
+            PF[verbo] = ""
+        }
+
+        # obtém os tempos específicos no vetor TE
+        if ((verbo == p) && (reg)) {
+            for (i in TM) {
+                TE[i] = 1
+                PF[verbo] = PF[verbo] "/" FV[i]
+            }
+        }
+        else {
+            for (i=1; i<=m; ++i) {
+                if (tme[i] != "") {
+                    j = substr(tme[i],1,2)
+                    TE[j] = 1
+                }
+            }
+            if (verbo==p) {
+                for (i in TM)
+                    if (TE[i] == 0)
+                        PF[verbo] = PF[verbo] "/" FV[i]
+            }
+        }
+
+        if (reg == 0) {
+            #O = O sprintf("#\n# VERBO " toupper(verbo) "\n# ")
+            #for (k=6+length(verbo); k>0; --k)
+            #    O = O sprintf("-")
+            #O = O "\n"
+            nr = 0
+        }
+
+        #
+        # prepare uma lista para percorrer os tempos em dois passos
+        #
+        LT[0]  = LT[13] = "FN"
+        LT[1]  = LT[14] = "IP"
+        LT[2]  = LT[15] = "PI"
+        LT[3]  = LT[16] = "II"
+        LT[4]  = LT[17] = "EI"
+        LT[5]  = LT[18] = "MI"
+        LT[6]  = LT[19] = "TI"
+        LT[7]  = LT[20] = "FI"
+        LT[8]  = LT[21] = "PS"
+        LT[9]  = LT[22] = "IS"
+        LT[10] = LT[23] = "FS"
+        LT[11] = LT[24] = "IA"
+        LT[12] = LT[25] = "IN"
+
+        # gera as regras para cada tempo e pessoa
+        for (q=0; q<26; ++q) {
+
+            i = LT[q]
+
+            #
+            # No primeiro passo processe os tempos que seguem o paradigma
+            # regular a fim de bufferizar as regras herdadas daquele
+            # paradigma. No segundo passo processe os tempos específicos.
+            #
+            if (q < 13) {
+                if (TE[i]!=0)
+                    continue
+            }
+            else if (TE[i]==0)
+                continue
+
+            if (reg) {
+                #O = sprintf("#\n# VERBO " toupper(verbo) "\n# ")
+                #for (k=6+length(verbo); k>0; --k)
+                #    O = O sprintf("-")
+                #O = O "\n"
+                O = ""
+                delete RA
+                nr = 0
+            }
+
+            C = expande(substr(tmr[i],4),r,verbo)
+            split(C,cs,":");
+
+            #
+            # elimine a forma alternativa do particípio se ela
+            # for idêntica a alguma das formas pessoais. Note que o
+            # formato aa deve ser utilizado apenas para gerar os
+            # afixos, assim esse método abrupto não terá
+            # nenhum efeito colateral além de evitar a criação
+            # de regras desnecessárias na flag z.
+            #
+            # As forma alternativas correspondem sempre às pessoas
+            # do singular (ex. expulso, expulsas, expulsa), mas
+            # mesmo assim permanece o masculino plural não coberto
+            # (expulsos). Assim se a concidência ocorrem no presente
+            # do indicativo, mantemos o particípio no plural.
+            #
+            # Entretanto se a coincidência ocorrer no presente do
+            # subjuntivo (ex. entregue, entregues) então eliminamos
+            # a forma alternativa pois as flexões já estão todas
+            # cobertas.
+            #
+            if ((i == "PI") && (verbo in PA) && (cs[1] == PA[verbo])) {
+                PA[verbo] = PA[verbo] "s"
+            }
+            else if ((i == "PS") && (verbo in PA) && (cs[1] == PA[verbo])) {
+                delete PA[verbo]
+            }
+
+            # flexione o particípio
+            if (i == "FN") {
+                j = substr(cs[3],1,length(cs[3])-1)
+                cs[4] = j "a"
+                cs[5] = j "os"
+                cs[6] = j "as"
+            }
+
+            #
+            # acrescente as formas enclíticas
+            #
+
+            # ex. cantá-la, vendê-la, antepô-la
+            if ((i == "FN") && (cs[1] != "")) {
+                if (vt == "a")
+                    cs[7] = substr(cs[1],0,length(cs[1])-2) "á"
+                else if (vt == "e")
+                    cs[7] = substr(cs[1],0,length(cs[1])-2) "ê"
+                else if ((vt == "o") || (vt == "ô"))
+                    cs[7] = substr(cs[1],0,length(cs[1])-2) "ô"
+            }
+
+            # ex. magoamo-la
+            if ((i == "PI") && (cs[4] != ""))
+                cs[7] = substr(cs[4],0,length(cs[4])-1)
+
+            # ex. magoemo-la
+            if ((i == "PS") && (cs[4] != ""))
+                cs[7] = substr(cs[4],0,length(cs[4])-1)
+
+            # ex. magoarmo-la
+            if ((i == "FS") && (cs[4] != ""))
+                cs[7] = substr(cs[4],0,length(cs[4])-1)
+
+            # ex. magoaremo-la
+            if ((i == "FI") && (cs[4] != ""))
+                cs[7] = substr(cs[4],0,length(cs[4])-1)
+
+            # ex. compusemo-la
+            if ((i == "EI") && (cs[4] != ""))
+                cs[7] = substr(cs[4],0,length(cs[4])-1)
+
+            # documente o tempo
+            #O = O "# " TM[i] ":\n"
+
+            #
+            # O paradigma ferir é difícil de tratar. Alguns verbos que
+            # o adotam por paradigma necessitam de regras particulares
+            # que seguem hardcoded.
+            #
+            # Não chegamos a verificar com cuidado se essas regras
+            # incluídas à mão não estão gerando falsos positivos.
+            # Por exemplo, se existe um verbo que ao mesmo tempo segue
+            # o paradigma ferir, termina com -elir mas não segue as
+            # particularidades do verbo compelir.
+            #
+            if ((verbo == "ferir") && (i == "PS")) {
+                O = O "    E R I R     > -ERIR,IRA      # fira\n"
+                O = O "    E L I R     > -ELIR,ILA      # compila (compelir)\n"
+                O = O "    E R T I R   > -ERTIR,IRTA    # advirta\n"
+                O = O "    E N T I R   > -ENTIR,INTA    # minta\n"
+                O = O "    E T I R     > -ETIR,ITA      # repita\n"
+                O = O "    E S T I R   > -ESTIR,ISTA    # revista (revestir)\n"
+                O = O "    E R V I R   > -ERVIR,IRVA    # sirva\n"
+                O = O "    E R Z I R   > -ERZIR,IRZA    # sirza\n"
+                O = O "    E R I R     > -ERIR,IRAS     # firas\n"
+                O = O "    E L I R     > -ELIR,ILAS     # compilas (compelir)\n"
+                O = O "    E R T I R   > -ERTIR,IRTAS   # advirtas\n"
+                O = O "    E N T I R   > -ENTIR,INTAS   # mintas\n"
+                O = O "    E T I R     > -ETIR,ITAS     # repitas\n"
+                O = O "    E S T I R   > -ESTIR,ISTAS   # revistas (revestir)\n"
+                O = O "    E R V I R   > -ERVIR,IRVAS   # sirvas\n"
+                O = O "    E R Z I R   > -ERZIR,IRZAS   # sirzas\n"
+                O = O "    E R I R     > -ERIR,IRAMOS   # firamos\n"
+                O = O "    E L I R     > -ELIR,ILAMOS   # compilamos (compelir)\n"
+                O = O "    E R T I R   > -ERTIR,IRTAMOS # advirtamos\n"
+                O = O "    E N T I R   > -ENTIR,INTAMOS # mintamos\n"
+                O = O "    E T I R     > -ETIR,ITAMOS   # repitamos\n"
+                O = O "    E S T I R   > -ESTIR,ISTAMOS # revistamos (revestir)\n"
+                O = O "    E R V I R   > -ERVIR,IRVAMOS # sirvamos\n"
+                O = O "    E R Z I R   > -ERZIR,IRZAMOS # sirzamos\n"
+                O = O "    E R I R     > -ERIR,IRAIS    # firais\n"
+                O = O "    E L I R     > -ELIR,ILAIS    # compilais (compelir)\n"
+                O = O "    E R T I R   > -ERTIR,IRTAIS  # advirtais\n"
+                O = O "    E N T I R   > -ENTIR,INTAIS  # mintais\n"
+                O = O "    E T I R     > -ETIR,ITAIS    # repitais\n"
+                O = O "    E S T I R   > -ESTIR,ISTAIS  # revistais (revestir)\n"
+                O = O "    E R V I R   > -ERVIR,IRVAIS  # sirvais\n"
+                O = O "    E R Z I R   > -ERZIR,IRZAIS  # sirzais\n"
+                O = O "    E R I R     > -ERIR,IRAM     # firam\n"
+                O = O "    E L I R     > -ELIR,ILAM     # compilam (compelir)\n"
+                O = O "    E R T I R   > -ERTIR,IRTAM   # advirtam\n"
+                O = O "    E N T I R   > -ENTIR,INTAM   # mintam\n"
+                O = O "    E T I R     > -ETIR,ITAM     # repitam\n"
+                O = O "    E S T I R   > -ESTIR,ISTAM   # revistam (revestir)\n"
+                O = O "    E R V I R   > -ERVIR,IRVAM   # sirvam\n"
+                O = O "    E R Z I R   > -ERZIR,IRZAM   # sirzam\n"
+                nr = 1
+            }
+
+            else for (j=1; j<=7; ++j) {
+
+                # veja o comentário logo acima sobre o paradigma ferir.
+                if ((verbo == "ferir") && (i == "PI") && (j == 1)) {
+                    O = O "    E R I R     > -ERIR,IRO      # firo\n"
+                    O = O "    E L I R     > -ELIR,ILO      # compilo (compelir)\n"
+                    O = O "    E R T I R   > -ERTIR,IRTO    # advirto\n"
+                    O = O "    E N T I R   > -ENTIR,INTO    # minto\n"
+                    O = O "    E T I R     > -ETIR,ITO      # repito\n"
+                    O = O "    E S T I R   > -ESTIR,ISTO    # revisto (revestir)\n"
+                    O = O "    E R V I R   > -ERVIR,IRVO    # sirvo\n"
+                    O = O "    E R Z I R   > -ERZIR,IRZO    # sirzo\n"
+                    nr = 1
+                }
+
+                # paradigmas fáceis para o ispell
+                else if (cs[j] != "") {
+
+                    #
+                    # construa a regra com duas letras (casos regulares
+                    # e paradigmas não caracterizáveis por três letras,
+                    # incluindo o infinitivo "ir", que corresponde ao
+                    # teste (r == "")), ou com três letras (demais casos).
+                    #
+                    if (reg || (r == "") || (RP[verbo] == 1))
+                        R = regra(verbo,cs[j],vt "R")
+                    else
+                        R = regra(verbo,cs[j],substr(r,length(r)) vt "R")
+
+                    # explicite as formas enclíticas
+                    if (j == 7)
+                        k = cs[j] "-la"
+                    else
+                        k = cs[j]
+
+                    # casos regulares já estão cobertos
+                    if (TE[i] == 0) {
+                        #O = O "#" substr(R,2) "# " k " (regular)\n"
+                    }
+
+                    # acrescente a regra se ela não estiver coberta
+                    else if ((cs[j] != verbo) && (RA[R] != 1)) {
+                        RA[R] = 1
+                        O = O R "# " k "\n"
+                        nr = 1
+                    }
+                    else {
+                        #O = O "#" substr(R,2) "# " k " (coberto)\n"
+                    }
+                }
+            }
+
+            if ((nr == 1) && (reg) && (verbo == p))
+                RULES[FV[i]] = RULES[FV[i]] O
+        }
+
+        if ((nr == 1) && (reg == 0) && (verbo == p))
+            RULES[FV[verbo]] = RULES[FV[verbo]] O
+    }
+
+    # análise do paradigma
+    else if (FORMATO == "ap") {
+
+        k = ""
+
+        # verifica se o radical sofre alteração
+        for (i in TM) {
+            if (tmr[i] ~ /[0-9]/)
+                k = " T"
+        }
+
+        # obtém e informa os tempos específicos
+        k = k " ("
+        for (i=1; i<=m; ++i) {
+            if (tme[i] != "") {
+                j = substr(tme[i],1,2)
+                TE[j] = 1
+                k = k " " j
+            }
+        }
+        k = k ") ("
+
+        informa os tempos regulares
+        for (i in TM) {
+            if (TE[i] != 1) {
+                k = k " " i
+            }
+        }
+        k = k ") "
+
+        print p k
+    }
+}
+
+#
+# Inicializa alguns conjuntos
+#
+function inicializa_tm() {
+
+    TM["FN"] = "Formas Nominais"
+    TM["IP"] = "Infinitivo Pessoal"
+    TM["PI"] = "Presente do Indicativo"
+    TM["II"] = "Imperfeito do Indicativo"
+    TM["EI"] = "Perfeito do Indicativo"
+    TM["MI"] = "Mais-que-perfeito do Indicativo"
+    TM["TI"] = "Futuro do Pretérito do Indicativo"
+    TM["FI"] = "Futuro do Presente do Indicativo"
+    TM["PS"] = "Presente do Subjuntivo"
+    TM["IS"] = "Imperfeito do Subjuntivo"
+    TM["FS"] = "Futuro do Subjuntivo"
+    TM["IA"] = "Imperativo Afirmativo"
+    TM["IN"] = "Imperativo Negativo"
+    VOG["a"] = ""
+    VOG["e"] = ""
+    VOG["i"] = ""
+    VOG["o"] = ""
+    VOG["u"] = ""
+    VOG["ã"] = ""
+    VOG["õ"] = ""
+    VOG["ô"] = ""
+    VOG["á"] = ""
+    VOG["é"] = ""
+    VOG["í"] = ""
+    VOG["ó"] = ""
+    VOG["ú"] = ""
+    P["1"] = "eu"
+    P["2"] = "tu"
+    P["3"] = "ele"
+    P["4"] = "nós"
+    P["5"] = "vós"
+    P["6"] = "eles"
+}
+
+#
+# Cria as regras de afixos para as formas alternativas do particípio.
+#
+function crie_z(n,i,R,j,k,m,a,rc) {
+
+    # gere as regras da flag z flexionando cada forma
+    n = 0
+    for (i in PA) {
+        a = regra(i,PA[i],i)
+        sub("^.*>",i " >",a)
+        R[++n] = a " # " PA[i]
+    }
+
+    # elimines letras à esquerda na flag z
+    RULES["z"] = ""
+    delete RA
+    for (j=1; j<=n; ++j) {
+    
+        split(R[j],MRF," +")
+        k = 1
+        for (a=1; (k<n+2) && (a<=length(MRF[1])); ++a) {
+            for (k=1; k<=n; ++k) {
+                split(R[k],TRF," +")
+                m = length(TRF[1]) - length(MRF[1])
+    
+                if ((MRF[3] != TRF[3]) &&
+                    (m+a >= 1) &&
+                    (substr(MRF[1],a) == substr(TRF[1],m+a))) {
+    
+                    k = n+2
+                }
+            }
+        }
+    
+        if (--a == 1) {
+            print "é impossível gerar as regras da flag z."
+            print MRF[1] " é sufixo de " TRF[1]
+            exit 1
+        }
+        else {
+            k = substr(MRF[1],a-1)
+            gsub(""," ",k)
+            a = "   " toupper(k) MRF[2] " " MRF[3]
+            rc = a " "
+            for (k=length(rc); k<33; ++k)
+                rc = rc " "
+            if (RA[rc] != 1) {
+                RA[rc] = 1
+                RULES["z"] = RULES["z"] rc MRF[4] " " MRF[5] "\n"
+    
+                # gere as flexões se necessário
+                if (a ~ /O$/) {
+                    sub("O$","A",a)
+                    RULES["z"] = RULES["z"] a "\n"
+                    sub("A$","OS",a)
+                    RULES["z"] = RULES["z"] a "\n"
+                    sub("OS$","AS",a)
+                    RULES["z"] = RULES["z"] a "\n"
+                }
+                else if (a ~ /E$/) {
+                    a = a "S"
+                    RULES["z"] = RULES["z"] a "\n"
+                }
+            }
+        }
+    }
+}
+
+#
+# fatora e lista as regras de sufixos verbais.
+#
+function liste_regras(n,i,f,R,j,k,m,a,rc) {
+
+    # os verbos usam as flags de "a" (97) a "z" (122)
+    for (i=97; i<=122; ++i) {
+        f = sprintf("%c",i);
+        if (RULES[f] == "")
+            continue
+    
+        # cabeçalho do bloco
+        printf("\n#\n# FLAG " f "\n");
+        if (i <= 82) {
+            printf("# paradigma regular:")
+            for (j in FV) {
+                if (FV[j] == f)
+                    printf(" " TM[j])
+            }
+        }
+        else if (i == 122) {
+            printf("# (particípios alternativos)")
+        }
+        else {
+            printf("# verbos:")
+            for (j in FV) {
+                if (FV[j] == f)
+                    printf(" " j)
+            }
+        }
+        print "\n#\nflag " f ":\n"
+    
+        #
+        # fatora e escreve as regras
+        #
+        n = split(RULES[f],R,"\n");
+        for (j=1; j<=n; ++j) {
+    
+            # regra j foi fatorada junto com alguma antecedente
+            if (R[j] == "")
+                continue
+    
+            # tente fatorar com cada uma das outras
+            split(R[j],MRF," +")
+            for (k=j+1; k<=n; ++k) {
+                split(R[k],TRF," +")
+
+                # fatora regras de dois antecedentes j e k
+                if ((MRF[4] == ">") &&
+                    (TRF[4] == ">") &&
+                    (MRF[6] == "#") &&
+                    (TRF[6] == "#") &&
+                    (MRF[5] == TRF[5])) {
+                    if (index(MRF[2],TRF[2]) == 0)
+                        MRF[2] = MRF[2] TRF[2]
+                    MRF[7] = MRF[7] ", " TRF[7]
+                    R[k] = ""
+                }
+
+                # fatora as regras de três antecedentes j e k
+                else if ((MRF[5] == ">") &&
+                         (TRF[5] == ">") &&
+                         (MRF[7] == "#") &&
+                         (TRF[7] == "#") &&
+                         (MRF[3] == TRF[3]) &&
+                         (MRF[6] == TRF[6])) {
+
+                    if (index(MRF[2],TRF[2]) == 0)
+                        MRF[2] = MRF[2] TRF[2]
+                    MRF[8] = MRF[8] ", " TRF[8]
+                    R[k] = ""
+                }
+            }
+    
+            # regra fatorada
+            if (length(MRF[2]) > 1) {
+                MRF[2] = "[" MRF[2] "]"
+                if (MRF[6] == "#") {
+                    rc = "    " MRF[2] " " MRF[3] " " MRF[4] " " MRF[5] " "
+                    for (k=length(rc); k<33; ++k)
+                        rc = rc " "
+                    print rc "# " MRF[7]
+                }
+                else {
+                    rc = "    " MRF[2] " " MRF[3] " " MRF[4] " " MRF[5] " " MRF[6] " "
+                    for (k=length(rc); k<33; ++k)
+                        rc = rc " "
+                    print rc "# " MRF[8]
+                }
+            }
+    
+            # regra não fatorada
+            else
+                print R[j]
+        }
+    }
+
+    # divisor
+    print "\n#\n# FINAL DAS REGRAS VERBAIS\n#\n";
+}
+
+#
+# Consiste a distribuição das flags pelos paradigmas verbais.
+#
+function consiste_fv(i,j,ti,tj)
+{
+    for (i in FV) {
+
+        if (index("abcdefghijklmnopqrstuvwxy",FV[i]) == 0) {
+            print "Falha interna: flag verbal " FV[i] " inválida" > "/dev/stderr"
+            exit 1
+        }
+        if (length(i) <= 2)
+            continue
+        ti = substr(i,length(i)-2)
+        for (j in FV) {
+            if ((i == j) || (length(j) <= 2))
+                continue
+            tj = substr(j,length(j)-2)
+
+            if ((FV[i] == FV[j]) && (ti == tj)) {
+                print "Falha interna: " i " e " j " colidem em FV" > "/dev/stderr"
+                exit 1
+            }
+        }
+    }
+}
+
+#
+# O programa começa aqui
+#
+BEGIN {
+
+    #
+    # comando "T" subentende formato "c".
+    # o formato default é "n".
+    #
+    if (FORMATO == "")
+        if (CMD == "T")
+            FORMATO = "c"
+        else
+            FORMATO = "n"
+
+    # mensagem de abertura
+    if ((FORMATO !~ /^(c|aa|b)/) && (CMD == "")) {
+        print "Conjugue -- conjugador de verbos para a língua portuguesa"
+        print "versão 1.1 (outubro de 99) por Ricardo Ueda Karpischek"
+        print "envie correções, críticas ou sugestões para ueda@ime.usp.br."
+        print ""
+        print "Use por sua própria conta e risco."
+        print ""
+        print "Tanto o programa quanto o banco de verbos que o acompanha"
+        print "são distribuídos sob os termos da licença GNU GPL. Isso"
+        print "significa que podem ser livremente copiados e que trabalhos"
+        print "derivados devem também ser disponibilizados através dessa"
+        print "mesma licença."
+        print ""
+        print "\"?\" exibe um pequeno guia de utilização."
+        print "\"n\" exibe algumas notas importantes."
+        print ""
+        #print "A atual versão não é capaz de conjugar os verbos conter"
+        #print "haver, seguir, conseguir, perseguir e engulir, progredir,"
+        #print "agredir, transgredir, prevenir e denegrir. Ela também não"
+        #print "trata as formas abundantes, além de outros prováveis problemas."
+        #print ""
+    }
+
+    # inicializa as flags e estruturas
+    fim = 0
+    inicializa_tm()
+    consiste_fv()
+    pr["a"] = pr["e"] = pr["i"] = pr["o"] = pr["ô"] = ""
+    novos = (NOVOS == "") ? ENVIRON["HOME"] "/.conjugue-novos" : NOVOS
+
+    # carga do banco
+    if ((FORMATO !~ /^(c|aa|b)/) && (CMD == "")) {
+        print "aguarde o término da leitura do banco..."
+    }
+    carrega_banco((BANCO=="") ? "/usr/local/lib/verbos" : BANCO)
+
+    # prompt
+    if (FORMATO ~ /^(c|aa|b)/)
+        PR = ""
+    else
+        PR = ":"
+
+    # lista os paradigmas
+    if (FORMATO == "b") {
+        FVN[pr["a"]] = 1
+        FVN[pr["e"]] = 2
+        FVN[pr["i"]] = 3
+        FVN[pr["o"]] = 4
+        FVN[pr["ô"]] = 5
+        if (CMD != "T") {
+            print "1 " pr["a"]
+            print "2 " pr["e"]
+            print "3 " pr["i"]
+            print "4 " pr["o"]
+            print "5 " pr["ô"]
+        }
+        j = 6;
+        for (i in FV) {
+            if (i ~ /r$/) {
+                FVN[i] = j
+                if (CMD != "T") {
+                    print j " " i
+                }
+                ++j
+            }
+        }
+        if (CMD != "T") {
+            exit
+        }
+    }
+
+    # loop principal
+    while (fim == 0) {
+
+        # prompt e leitura do comando
+        if (FORMATO ~ /^(c|aa|b)/)
+            ORS = ""
+        else
+            ORS = " "
+        if ((FORMATO !~ /^(c|aa|b)/) && (CMD == ""))
+            print PR
+        ORS = "\n"
+        if (CMD != "") {
+            $1 = CMD
+            fim = 1
+        }
+
+        # thanks Ralf Baechle
+        else {
+            if (getline <= 0)
+                exit
+        }
+
+        # tempos e modos
+        if ($1 == "a") {
+            print abrevia
+        }
+
+        # comando de abandono
+        if ($1 == "f") {
+            fim = 1;
+        }
+
+        # conjuga o verbo dado
+        if (length($1) > 1) {
+
+            # conjuga o verbo
+            if ($1 in V)
+                conjugue_todos($1)
+
+            else if (substr($1,length($1),1) != "r")
+                print "# Não sou capaz de conjugar " $1
+
+            else {
+                print "# " $1 " não consta do banco de verbos"
+                if (novos != "")
+                    print $1 >>novos
+                conjugue_todos($1)
+            }
+        }
+
+        # notas sobre o programa
+        if ($1 == "n") {
+            print notas
+        }
+
+        # lista dos verbos
+        if ($1 == "V") {
+            for (i in V) print i
+        }
+
+        # conjuga todos os verbos conhecidos
+        if ($1 == "T") {
+
+            #
+            # O formato aa cria os blocos de regras para cada um dos
+            # paradigmas verbais. As flags são pré-definidas pelo vetor FV.
+            # Em seguida aos blocos de regras, são
+            # enviados os verbos, cada um rotulado com a flag correspondente
+            # ao seu paradigma. É necessário dividir a saída,
+            # e prefixar os blocos de regras com um cabeçalho adequado
+            # no formato do ispell(4).
+            #
+            if ((FORMATO == "aa") || (FORMATO == "ci")) {
+
+                FORMATO_MESMO = FORMATO
+                FORMATO = "aa"
+
+                # Gera os blocos de regras.
+                for (i in LP)
+                    conjugue_todos(i)
+
+                # remove os particípios alternativos que são
+                # idênticos a formas da primeira pessoa.
+                for (i in PA)
+                    conjugue_todos(i)
+
+                FORMATO = FORMATO_MESMO
+
+                if (FORMATO == "aa") {
+
+                    # crie as regras para os particípios alternativos
+                    crie_z()
+
+                    # fatore e liste as regras de sufixos verbais
+                    liste_regras()
+                }
+
+                # lista os verbos
+                else if (FORMATO == "ci") {
+                    for (i in V)
+                        conjugue_todos(i)
+                }
+            }
+
+            else {
+                for (i in V)
+                    conjugue_todos(i)
+            }
+        }
+
+        # percorre (e analisa) os paradigmas
+        if ($1 == "P") {
+            for (i in LP)
+                conjugue_todos(i)
+        }
+
+        # lista dos comandos disponíveis
+        if ($1 == "?") {
+            print "a: exibe as abreviações"
+            print "<verbo>: conjuga o verbo dado"
+            print "f: abandona"
+            print "n: exibe algumas notas importantes"
+        }
+    }
+}

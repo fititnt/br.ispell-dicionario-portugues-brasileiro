@@ -1,0 +1,69 @@
+Alterações do beta4:
+--------------------
+
+1. O FAQ foi ampliado e ganhou um índice.
+
+2. Adicionada ao Makefile as regras para suporte ao aspell.
+
+3. Nova revisão do banco de verbos pelo Alexandre Hamada.
+
+4. Adicionadas mais algumas palavras.
+
+
+Alterações do beta3:
+--------------------
+
+1. Corrigidos os problemas causados pelo uso de três letras para
+identificar os paradigmas verbais. Os paradigmas problemáticos
+foram isolados em blocos. Adicionado ao conjugue suporte para os
+paradigmas que não são caracterizáveis por três letras.
+
+2. Corrigidos problemas reportados por Arnaldo Mandel, Fábio Kon
+e Adriano Rodrigues: nas entradas duplicadas, não estava sendo
+honrada a flexão mais abrangente, a flexão dos artigos definidos
+não funciona (as flexões precisam ser acrescentados como raízes),
+erros na documentação e algumas lacunas.
+
+3. Acrescentada a opção -F ao programa fl. Essa opção classifica
+e flexiona os não verbos de forma ingênua mas automática, baseada
+na terminação das palavras. por exemplo: palavras terminadas em
+"ção" são classificadas como substantivos femininos e flexionadas
+como "ção, ções". A intenção desse código é servir como
+proprocessador de listas de palavras sobre as quais nada se
+saiba. Para ver a lista completa de terminações reconhecidas,
+procure no programa fl a string "TTM". Esse código foi aplicado a
+uma lista de cerca de 2000 palavras enviadas pelo Rodrigo
+Siqueira (procure "Rodrigo" no Makefile para ver como isso é
+feito). O resultado não foi analisado com cuidado, mas parece ser
+razoável. Um problema conhecido é a incapacidade de identificar
+formas verbais.
+
+4. Classificadas, flexionadas e acrescentadas cerca de 2000
+palavras enviadas pelo Rodrigo Siqueira (ver n. 3).
+
+
+Alterações do beta2:
+--------------------
+
+1. Opções -x e -I adicionadas ao programa fl.
+
+2. Adicionada uma dependência ao makefile (problema reportado por
+Arnaldo Mandel).
+
+3. As formas que não preservam nenhuma parte do lema estão sendo
+adicionadas ao dicionário de explicitamente. Por exemplo: "foi"
+não preserva nada do lema "ser". A regra de afixos que deriva
+"foi" de "ser" é assim:
+
+    S E R > -SER,FOI
+
+Nem o ispell e nem o myspell aproveitam essa regra para o
+infinitivo "ser". Assim, a forma "foi" (entre outras) tem que ser
+adicionada ao dicionário explicitamente. No momento há 69 formas
+desse tipo. Elas podem ser listadas através da opção -I do
+programa fl (problema reportado por Arnaldo Mandel).
+
+4. O programa fl ficou significativamente mais rápido.
+
+5. Adicionado um FAQ.
+

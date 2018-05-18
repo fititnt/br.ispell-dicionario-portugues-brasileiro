@@ -1,0 +1,39 @@
+1. Fatorar as raízes na geração do arquivo br.ispell.
+
+2. Incluir flag específica para o paradigma :a,as,o,os.
+
+3. Resolver os encontros vocálicos ainda não previstos no código:
+
+# encontro vocálico imprevisto: eei
+# encontro vocálico imprevisto: eião
+# encontro vocálico imprevisto: eou
+# encontro vocálico imprevisto: êu
+# encontro vocálico imprevisto: iãe
+# encontro vocálico imprevisto: iauí
+# encontro vocálico imprevisto: oiei
+# encontro vocálico imprevisto: uéi
+# encontro vocálico imprevisto: uéia
+# encontro vocálico imprevisto: uía
+# encontro vocálico imprevisto: uío
+# encontro vocálico imprevisto: uóia
+
+5. descobrir como gerar o dicionário do aspell e incluir os
+comandos no makefile.
+
+6. Ordenar foneticamente a lista de nomes do Osmar e revisá-la.
+
+7. Agregar as listas do Rodrigo,
+
+8. A agregação de vocabulários via fl -E precisa indicar a origem
+do vocabulário.
+
+9. As classes de termos especializados precisam anotar cada
+entrada como termo especializado.
+
+10. Remover a restrição de no lema não poder comparecer dígito
+decimal isolado (isso é imposto pelo parse feito na função
+analise_verbete).
+
+11. Resolver o problema dos paradigmas verbais que não se
+caracterizam pelas três últimas letras (busque "melou" no
+conjugador).
